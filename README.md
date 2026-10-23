@@ -2,6 +2,8 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
+[注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
+
 当前阶段：**阶段 10 — LittleSkin / Yggdrasil 外置登录**（控制台验证，不含 UI）。
 
 ## 解决方案结构
