@@ -50,6 +50,7 @@ RunAbstractionChecks();
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
 Stage6Checks.RunLocal(Check);
+Stage7Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {
@@ -70,6 +71,10 @@ else
     if (!args.Contains("--no-launch"))
     {
         await Stage6Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+        await Stage7Checks.RunNetworkAsync(
+            Check,
+            Path.Combine(Path.GetTempPath(), "oml-stage7", "launcher"),
+            Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
     }
     else
     {

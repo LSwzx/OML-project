@@ -2,7 +2,7 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
-当前阶段：**阶段 6 — 启动参数与 Java 进程**（控制台验证，不含 UI）。
+当前阶段：**阶段 7 — 启动门面、离线账号与配置持久化**（控制台验证，不含 UI）。
 
 ## 解决方案结构
 
@@ -60,7 +60,12 @@ OML.Core/
 │  └─ AssetDownloader.cs        # 资源索引缓存 + 按 hash 补全
 ├─ Java/
 │  └─ JavaScanner.cs            # JAVA_HOME / 注册表 / 常见目录 / PATH 探测
+├─ Auth/
+│  └─ OfflineAuthService.cs     # 离线 UUID（UUIDv3）+ 随机令牌
+├─ Configuration/
+│  └─ ConfigManager.cs          # launcher_config.json 读写（原子写入）
 ├─ Launching/
+│  ├─ LaunchSession.cs          # 门面：检查→补全→解压→预检→启动→退出
 │  ├─ LaunchOptions.cs          # 启动输入与构建结果
 │  ├─ LaunchArgumentBuilder.cs  # JVM 参数 + 变量替换 + 条件参数
 │  ├─ LaunchPrechecker.cs       # classpath / 主 jar / natives 预检
@@ -130,6 +135,27 @@ org.lwjgl:lwjgl:3.3.3:natives-windows-arm64  rules: os.name == windows
 > `latest.log` 归游戏所有，启动器捕获的进程输出另存一份，两者互补。
 > 确需覆盖可用 `new JvmLauncher(dir, "latest.log")`。
 
+### 门面与配置（UI 层契约）
+
+```csharp
+var manager = new ConfigManager(launcherRoot);          // 默认程序所在目录
+var config  = await manager.LoadAsync();                // 坏文件自动备份并回退默认
+config.UserProfile = await new OfflineAuthService()
+        .AuthenticateAsync(AuthTypes.Offline, "Player");
+
+using var session = new LaunchSession();
+session.LogReceived += line => ui.AppendLog(line);
+var info = await session.LaunchGameAsync(config, progress);
+var exit = await info.WaitForExitAsync();               // ExitCode + CrashReportPath
+```
+
+- `LaunchProgress` 的 `Progress` 是**阶段内**百分比：下载 54 个库与几千个资源耗时差几个数量级，
+  硬凑全局百分比只会误导用户。UI 按 `Stage` 切换文案与进度条即可。
+- 进程起来立即返回；退出码与崩溃报告（`crash-reports/*.txt` 中本次启动后生成的那份）通过
+  `WaitForExitAsync()` 获取。只认启动时间之后的文件，避免把上次的旧报告当成本次崩溃。
+- 配置写在**启动器根目录**的 `launcher_config.json`，不进 `.minecraft`：游戏目录会被玩家
+  清理或迁移，配置不该跟着丢。写入走临时文件替换，断电不会留下半截 JSON。
+
 ### 版本缓存（离网可用）
 
 | 内容 | 落点 | 新鲜期 |
@@ -169,6 +195,8 @@ org.lwjgl:lwjgl:3.3.3:natives-windows-arm64  rules: os.name == windows
 - **进度**：8 块增量汇总，100ms 节流后上报 `0.0 - 1.0`；续传首帧即非零。
 - **校验**：合并时流式算 SHA-1（不二次读盘），不匹配抛 `DownloadIntegrityException` 并清理。
 - **重试**：默认 3 次指数退避；`429 / 503` 单独加长退避（3s 起）并尊重 `Retry-After`。
+- **读超时**：单次读取/等响应头 30s 无数据即抛出并重试。`HttpClient` 整体超时设为无限，
+  没有这一层兜底，僵死连接会让"正在下载"永久卡住（实测出现过 6/8 分块完成后另两块停住）。
 - **限流**：分块默认错峰 120ms 启动，避免 8 个请求同时触发镜像站 429。
 
 ## 构建与运行

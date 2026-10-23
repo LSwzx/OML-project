@@ -167,11 +167,7 @@ internal static class Stage4Checks
     /// <summary>联网断言：真实抓取清单、下载 client.jar、验证离线回退。</summary>
     public static async Task RunNetworkAsync(Action<string, bool> check, string gameRoot)
     {
-        if (Directory.Exists(gameRoot))
-        {
-            Directory.Delete(gameRoot, true);
-        }
-
+        // 不删除已有目录：client.jar 已存在时下载器会按 SHA-1 短路，重复运行只补缺失项。
         Directory.CreateDirectory(gameRoot);
         var game = new GameDirectory(gameRoot);
         var workRoot = Path.GetDirectoryName(gameRoot)!;

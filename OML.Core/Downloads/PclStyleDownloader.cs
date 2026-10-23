@@ -42,6 +42,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
     private readonly int _chunkCount;
     private readonly int _maxRetries;
     private readonly TimeSpan _chunkStartStagger;
+    private readonly TimeSpan _readTimeout;
 
     /// <param name="httpClient">可注入共享客户端；为 <c>null</c> 时自建（连接超时 10s、无整体超时）。</param>
     /// <param name="maxRetries">单块/单流失败重试次数。</param>
@@ -51,12 +52,21 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
     /// 分块启动错峰间隔。BMCLAPI 对同一 IP 的突发并发 Range 请求会返回 429，
     /// 8 块同时起跑几乎必被限流；错峰 100~150ms 可显著降低触发率，代价是可忽略的额外延迟。
     /// </param>
+    /// <param name="readTimeout">
+    /// 单次读取的静默超时，默认 30 秒。
+    /// <para>
+    /// <b>必需</b>：<see cref="HttpClient.Timeout"/> 设为无限后，连接僵死（TCP 还活着但服务端不再发数据）
+    /// 会让下载永久挂起。实测遇到过 6/8 分块完成后另两块停在 0 字节不再前进——
+    /// 没有读超时，启动器就永远卡在"正在下载"。
+    /// </para>
+    /// </param>
     public PclStyleDownloader(
         HttpClient? httpClient = null,
         int maxRetries = DefaultMaxRetries,
         long chunkThresholdBytes = DefaultChunkThresholdBytes,
         int chunkCount = DefaultChunkCount,
-        TimeSpan? chunkStartStagger = null)
+        TimeSpan? chunkStartStagger = null,
+        TimeSpan? readTimeout = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxRetries);
         ArgumentOutOfRangeException.ThrowIfNegative(chunkThresholdBytes);
@@ -68,6 +78,28 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
         _chunkThresholdBytes = chunkThresholdBytes;
         _chunkCount = chunkCount;
         _chunkStartStagger = chunkStartStagger ?? TimeSpan.FromMilliseconds(120);
+        _readTimeout = readTimeout ?? TimeSpan.FromSeconds(30);
+    }
+
+    /// <summary>
+    /// 带静默超时的读取：超时转成普通 IO 异常，交给重试逻辑从当前偏移续传。
+    /// </summary>
+    private async ValueTask<int> ReadWithTimeoutAsync(
+        Stream stream,
+        Memory<byte> buffer,
+        CancellationToken cancellationToken)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(_readTimeout);
+
+        try
+        {
+            return await stream.ReadAsync(buffer, timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new IOException($"读取超时（{_readTimeout.TotalSeconds:0} 秒无数据）");
+        }
     }
 
     /// <inheritdoc />
@@ -165,9 +197,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                 }
 
                 using var request = CreateRequest(task.Url, existing);
-                using var response = await _http
-                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                    .ConfigureAwait(false);
+                using var response = await SendWithTimeoutAsync(request, cancellationToken).ConfigureAwait(false);
 
                 // 429/503 是镜像站常见限流，必须退避重试而不是直接把异常抛给用户。
                 if (!response.IsSuccessStatusCode)
@@ -203,7 +233,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                     try
                     {
                         int read;
-                        while ((read = await input.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
+                        while ((read = await ReadWithTimeoutAsync(input, buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
                         {
                             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                             existing += read;
@@ -344,9 +374,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
             try
             {
                 using var request = CreateRangeRequest(url, chunk.Start + have, chunk.End);
-                using var response = await _http
-                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                    .ConfigureAwait(false);
+                using var response = await SendWithTimeoutAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
@@ -378,7 +406,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                     try
                     {
                         int read;
-                        while ((read = await input.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
+                        while ((read = await ReadWithTimeoutAsync(input, buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
                         {
                             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                             have += read;
@@ -518,6 +546,29 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
         }
 
         return chunks.ToArray();
+    }
+
+    /// <summary>
+    /// 等待响应头也有超时：连接建立后服务端迟迟不返回响应头同样会挂死，
+    /// 而 <see cref="HttpClient.Timeout"/> 已设为无限。
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithTimeoutAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        using var headerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        headerCts.CancelAfter(_readTimeout);
+
+        try
+        {
+            return await _http
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, headerCts.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new IOException($"等待响应超时（{_readTimeout.TotalSeconds:0} 秒）");
+        }
     }
 
     private static HttpRequestMessage CreateRequest(string url, long from)

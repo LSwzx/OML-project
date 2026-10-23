@@ -312,7 +312,7 @@ internal static class Stage6Checks
         using var process = await launcher.LaunchAsync(arguments);
         check("进程已启动", !process.HasExited || process.ExitCode >= 0);
 
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        await Task.Delay(TimeSpan.FromSeconds(15));
 
         if (!process.HasExited)
         {
@@ -343,7 +343,8 @@ internal static class Stage6Checks
             snapshot.Any(l => l.Contains("LWJGL", StringComparison.OrdinalIgnoreCase)) ||
             snapshot.Any(l => l.Contains("Setting user", StringComparison.OrdinalIgnoreCase)) ||
             snapshot.Any(l => l.Contains("Backend library", StringComparison.OrdinalIgnoreCase)) ||
-            snapshot.Any(l => l.Contains("Minecraft", StringComparison.OrdinalIgnoreCase)));
+            snapshot.Any(l => l.Contains("Datafixer", StringComparison.OrdinalIgnoreCase)) ||
+            snapshot.Any(l => l.Contains("Reloading ResourceManager", StringComparison.OrdinalIgnoreCase)));
 
         Console.WriteLine($"   游戏目录：{gameRoot}");
     }
