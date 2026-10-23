@@ -48,6 +48,7 @@ static bool IsMonotonic(IReadOnlyList<double> values)
 
 RunAbstractionChecks();
 Stage4Checks.RunLocal(Check);
+Stage5Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {
@@ -56,8 +57,14 @@ if (args.Contains("--no-network"))
 }
 else
 {
-    await RunDownloadChecksAsync();
-    await Stage4Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage4", ".minecraft"));
+    var onlyStage5 = args.Contains("--stage5-only");
+    if (!onlyStage5)
+    {
+        await RunDownloadChecksAsync();
+        await Stage4Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage4", ".minecraft"));
+    }
+
+    await Stage5Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
 }
 
 Console.WriteLine();

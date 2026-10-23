@@ -90,30 +90,6 @@ public sealed class Arguments
     public List<JsonElement> Jvm { get; set; } = new();
 }
 
-/// <summary>资源索引元数据。</summary>
-public sealed class AssetIndex
-{
-    /// <summary>资源索引 ID，同时是 <c>assets/indexes/&lt;id&gt;.json</c> 的文件名。</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
-
-    /// <summary>SHA-1 校验值。</summary>
-    [JsonPropertyName("sha1")]
-    public string? Sha1 { get; set; }
-
-    /// <summary>压缩后大小（字节）。</summary>
-    [JsonPropertyName("size")]
-    public long Size { get; set; }
-
-    /// <summary>解压后资源总大小（字节）。</summary>
-    [JsonPropertyName("totalSize")]
-    public long TotalSize { get; set; }
-
-    /// <summary>下载地址。</summary>
-    [JsonPropertyName("url")]
-    public string? Url { get; set; }
-}
-
 /// <summary>版本核心文件（client.jar / server.jar）。</summary>
 public sealed class VersionDownloads
 {
