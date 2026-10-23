@@ -2,7 +2,7 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
-当前阶段：**阶段 3 — 镜像测速与多线程下载引擎**（控制台验证，不含 UI）。
+当前阶段：**阶段 4 — 版本清单管理与游戏目录布局**（控制台验证，不含 UI）。
 
 ## 解决方案结构
 
@@ -47,13 +47,38 @@ OML.Abstractions/
 
 ```
 OML.Core/
-└─ Downloads/
-   ├─ BmclApiPathMapper.cs      # 官方地址 → BMCLAPI 地址（实测规则）
-   ├─ BmclApiSourceProvider.cs  # 双源 + 测速缓存 + 失败回退
-   ├─ MirrorSpeedTester.cs      # 并发 HEAD 测速，3s 超时
-   ├─ PclStyleDownloader.cs     # 8 块并发 / 断点续传 / SHA-1 / 重试
-   └─ OmlHttpClientFactory.cs   # 无整体超时、连接超时 10s 的共享客户端
+├─ Downloads/
+│  ├─ BmclApiPathMapper.cs      # 官方地址 → BMCLAPI 地址（实测规则）
+│  ├─ BmclApiSourceProvider.cs  # 双源 + 测速缓存 + 失败回退
+│  ├─ MirrorSpeedTester.cs      # 并发 HEAD 测速，3s 超时
+│  ├─ PclStyleDownloader.cs     # 8 块并发 / 断点续传 / SHA-1 / 重试
+│  └─ OmlHttpClientFactory.cs   # 无整体超时、连接超时 10s 的共享客户端
+├─ Serialization/
+│  └─ OmlJsonOptions.cs         # 大小写不敏感 / 枚举字符串 / 只读配置
+└─ Versioning/
+   ├─ GameDirectory.cs          # .minecraft 布局与版本隔离
+   ├─ VersionRepository.cs      # 清单抓取 + 缓存 + 继承链解析
+   └─ VersionInheritor.cs       # inheritsFrom 合并
 ```
+
+### 版本缓存（离网可用）
+
+| 内容 | 落点 | 新鲜期 |
+| :-- | :-- | :-- |
+| 版本清单 | `versions/version_manifest_v2.json` | 30 分钟（过期仍可作为断网兜底） |
+| 版本详情 | `versions/<id>/<id>.json` | 永久（内容不可变） |
+| 客户端 jar | `versions/<id>/<id>.jar` | — |
+
+任何网络异常都会回退本地缓存；无缓存才抛异常。缓存目录与游戏目录同构，不做重复存储。
+
+### inheritsFrom 合并规则
+
+- **libraries**：以 `group:artifact[:classifier]` 为身份键（**不含版本号**），子级覆盖父级、保留父级位置，新库追加末尾。
+  按完整 `name` 判重会让同一库的多个版本同时进 classpath，运行期直接 `NoSuchMethodError`。
+- **arguments**：父在前、子在后的顺序拼接。
+- **mainClass**：子级非空则覆盖。
+- **assetIndex / assets / downloads / javaVersion / logging**：子级缺省时继承。
+- 继承链有环检测与 16 层深度上限。
 
 ### BMCLAPI 路径规则（全部实测）
 
@@ -70,7 +95,7 @@ OML.Core/
 
 ### 下载引擎行为
 
-- **分块**：`> 5MB` 且 `HttpClient` 可用 Range 时切 8 块；命中 200（服务端忽略 Range）自动退化单流。
+- **分块**：`> 5MB` 且服务端支持 Range 时切 8 块；命中 200（服务端忽略 Range）自动退化单流。
 - **续传**：每块一个 `{file}.part{i}`，续传起点 = 该文件当前长度；单流用 `{file}.part`。
 - **进度**：8 块增量汇总，100ms 节流后上报 `0.0 - 1.0`；续传首帧即非零。
 - **校验**：合并时流式算 SHA-1（不二次读盘），不匹配抛 `DownloadIntegrityException` 并清理。
@@ -81,6 +106,6 @@ OML.Core/
 
 ```powershell
 dotnet build OML.sln
-dotnet run --project OML.Test              # 含联网验证（会真实下载 ~9MB）
-dotnet run --project OML.Test -- --no-network   # 仅离线模型断言
+dotnet run --project OML.Test                    # 全量自检（会真实下载 ~50MB）
+dotnet run --project OML.Test -- --no-network    # 仅离线断言
 ```

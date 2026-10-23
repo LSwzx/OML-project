@@ -4,6 +4,7 @@ using OML.Abstractions.Auth;
 using OML.Abstractions.Downloads;
 using OML.Abstractions.Models;
 using OML.Core.Downloads;
+using OML.Test;
 
 // OML 自检宿主：阶段 2 的模型断言 + 阶段 3 的下载引擎实网验证。
 // 任何一个断言失败都以非零退出码结束；`--no-network` 可跳过联网测试。
@@ -46,6 +47,7 @@ static bool IsMonotonic(IReadOnlyList<double> values)
 }
 
 RunAbstractionChecks();
+Stage4Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {
@@ -55,6 +57,7 @@ if (args.Contains("--no-network"))
 else
 {
     await RunDownloadChecksAsync();
+    await Stage4Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage4", ".minecraft"));
 }
 
 Console.WriteLine();
