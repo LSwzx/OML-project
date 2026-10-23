@@ -2,7 +2,7 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
-当前阶段：**阶段 5 — 依赖解析与资源补全**（控制台验证，不含 UI）。
+当前阶段：**阶段 6 — 启动参数与 Java 进程**（控制台验证，不含 UI）。
 
 ## 解决方案结构
 
@@ -58,6 +58,13 @@ OML.Core/
 │  └─ OmlJsonOptions.cs         # 大小写不敏感 / 枚举字符串 / 只读配置
 ├─ Assets/
 │  └─ AssetDownloader.cs        # 资源索引缓存 + 按 hash 补全
+├─ Java/
+│  └─ JavaScanner.cs            # JAVA_HOME / 注册表 / 常见目录 / PATH 探测
+├─ Launching/
+│  ├─ LaunchOptions.cs          # 启动输入与构建结果
+│  ├─ LaunchArgumentBuilder.cs  # JVM 参数 + 变量替换 + 条件参数
+│  ├─ LaunchPrechecker.cs       # classpath / 主 jar / natives 预检
+│  └─ JvmLauncher.cs            # 拉起进程 + 日志重定向
 └─ Versioning/
    ├─ GameDirectory.cs          # .minecraft 布局与版本隔离
    ├─ PlatformInfo.cs           # os/arch 归一（windows / x86_64 ...）
@@ -101,6 +108,27 @@ org.lwjgl:lwjgl:3.3.3:natives-windows-arm64  rules: os.name == windows
 - 批量下载并发默认 16（`DownloadBatchRunner`），单个失败不中断整批，失败清单可重试。
 - `AssetDownloader.DownloadAsync` 默认带 2 轮失败重试：镜像站 429 是常态，
   单轮失败就放弃会让"补全几千个资源"必然留缺口。
+
+### 启动链路
+
+1. **Java 探测**：`JAVA_HOME` → 注册表（`JavaSoft\JDK`、`Eclipse Adoptium`、`Microsoft\JDK` 等，64/32 位视图）
+   → 常见安装目录 → `PATH`。版本用 `java -version` 实测解析：Java 8 的 `"1.8.0_381"` 折叠成 8，
+   Java 9+ 直接取主版本号。绝不写死版本号（1.21.1 要 21，更新的版本已经要 25）。
+2. **参数构建**：模板 JVM 参数 → 内存/品牌参数 → `-cp` → 主类 → 游戏参数。
+   `${auth_player_name}`、`${game_directory}` 等全部替换；条件参数按 `rules` 求值，
+   `--demo`/`--width` 由 features 决定。
+3. **classpath 顺序**：客户端 jar **必须在最前面**。少了它 Java 会抛
+   `ClassNotFoundException: net.minecraft.client.main.Main`，而库全都在时看起来"文件都齐了"。
+4. **预检**：classpath 每个文件、客户端 jar、natives 目录里的 dll，缺任何一项立刻抛
+   `LaunchPrecheckException` 并列出缺失清单。
+5. **进程与日志**：`UseShellExecute=false` + `ArgumentList`（路径含空格也安全），
+   stdout/stderr 同时重定向并实时落盘。
+
+> **日志文件名是 `logs/oml-launch.log`，不是 `latest.log`。**
+> 实测：启动器占住 `latest.log` 时，Minecraft 的 Log4j 会报
+> `Unable to delete file ... latest.log: 另一个程序正在使用此文件`，日志轮转失败。
+> `latest.log` 归游戏所有，启动器捕获的进程输出另存一份，两者互补。
+> 确需覆盖可用 `new JvmLauncher(dir, "latest.log")`。
 
 ### 版本缓存（离网可用）
 

@@ -145,7 +145,7 @@ public sealed class VersionRepository : IDisposable
         {
             remoteJson = await DownloadVersionJsonAsync(id, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException && File.Exists(jsonPath))
+        catch (Exception ex) when (!IsCallerCancellation(ex, cancellationToken) && File.Exists(jsonPath))
         {
             // 断网 / 镜像挂了：回退旧缓存，宁可给用户一个能玩的旧数据也不直接崩。
         }
@@ -236,7 +236,7 @@ public sealed class VersionRepository : IDisposable
             await WriteAtomicAsync(path, json, cancellationToken).ConfigureAwait(false);
             return json;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException && File.Exists(path))
+        catch (Exception ex) when (!IsCallerCancellation(ex, cancellationToken) && File.Exists(path))
         {
             return await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
         }
@@ -301,6 +301,17 @@ public sealed class VersionRepository : IDisposable
             return null;
         }
     }
+
+    /// <summary>
+    /// 区分"用户主动取消"与"连接超时"。
+    /// <para>
+    /// <c>SocketsHttpHandler.ConnectTimeout</c> 超时抛的是 <see cref="TaskCanceledException"/>（OCE 子类），
+    /// 若一律当作取消再抛，断网/网络抖动时就无法回退缓存——而这正是离网可用要覆盖的场景。
+    /// 只有调用方 token 真的被取消时才算取消。
+    /// </para>
+    /// </summary>
+    private static bool IsCallerCancellation(Exception exception, CancellationToken cancellationToken) =>
+        exception is OperationCanceledException && cancellationToken.IsCancellationRequested;
 
     private static async Task WriteAtomicAsync(string path, string content, CancellationToken cancellationToken)
     {

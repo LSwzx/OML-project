@@ -49,6 +49,7 @@ static bool IsMonotonic(IReadOnlyList<double> values)
 RunAbstractionChecks();
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
+Stage6Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {
@@ -65,6 +66,15 @@ else
     }
 
     await Stage5Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+
+    if (!args.Contains("--no-launch"))
+    {
+        await Stage6Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+    }
+    else
+    {
+        Console.WriteLine("已跳过真实启动测试（--no-launch）。");
+    }
 }
 
 Console.WriteLine();
