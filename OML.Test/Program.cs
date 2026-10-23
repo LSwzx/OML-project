@@ -59,6 +59,7 @@ Stage6Checks.RunLocal(Check);
 Stage7Checks.RunLocal(Check);
 Stage8Checks.RunLocal(Check);
 Stage9Checks.RunLocal(Check);
+Stage10Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {
@@ -70,14 +71,15 @@ else
     var onlyStage5 = args.Contains("--stage5-only");
     var onlyStage8 = args.Contains("--stage8-only");
     var onlyStage9 = args.Contains("--stage9-only");
+    var onlyStage10 = args.Contains("--stage10-only");
 
-    if (!onlyStage5 && !onlyStage8 && !onlyStage9)
+    if (!onlyStage5 && !onlyStage8 && !onlyStage9 && !onlyStage10)
     {
         await RunDownloadChecksAsync();
         await Stage4Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage4", ".minecraft"));
     }
 
-    if (!onlyStage8 && !onlyStage9)
+    if (!onlyStage8 && !onlyStage9 && !onlyStage10)
     {
         await Stage5Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
 
@@ -95,7 +97,7 @@ else
         }
     }
 
-    if (!onlyStage9 && !args.Contains("--no-stage8"))
+    if (!onlyStage9 && !onlyStage10 && !args.Contains("--no-stage8"))
     {
         await Stage8Checks.RunNetworkAsync(
             Check,
@@ -103,9 +105,14 @@ else
             Path.Combine(Path.GetTempPath(), "oml-stage8", ".minecraft"));
     }
 
-    if (!args.Contains("--no-stage9"))
+    if (!onlyStage10 && !args.Contains("--no-stage9"))
     {
         await Stage9Checks.RunNetworkAsync(Check);
+    }
+
+    if (!args.Contains("--no-stage10"))
+    {
+        await Stage10Checks.RunNetworkAsync(Check);
     }
 }
 

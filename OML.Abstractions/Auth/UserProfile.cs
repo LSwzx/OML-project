@@ -26,6 +26,10 @@ public sealed class UserProfile
     [JsonPropertyName("skinUrl")]
     public string? SkinUrl { get; set; }
 
+    /// <summary>皮肤模型：<c>classic</c>（粗手臂）或 <c>slim</c>（细手臂）；未知时为 <c>null</c>。</summary>
+    [JsonPropertyName("skinModel")]
+    public string? SkinModel { get; set; }
+
     /// <summary>该档案的认证来源，取值见 <see cref="AuthTypes"/>。</summary>
     [JsonPropertyName("type")]
     public string Type { get; set; } = AuthTypes.Offline;

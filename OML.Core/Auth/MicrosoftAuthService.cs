@@ -519,16 +519,7 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
             : null;
 
     /// <summary>把 Minecraft 的 32 位无连字符 ID 格式化成标准 UUID。</summary>
-    public static string FormatUuid(string id)
-    {
-        var hex = id.Replace("-", string.Empty).Trim();
-        if (hex.Length != 32)
-        {
-            return id;
-        }
-
-        return $"{hex[..8]}-{hex[8..12]}-{hex[12..16]}-{hex[16..20]}-{hex[20..]}";
-    }
+    public static string FormatUuid(string id) => UuidText.Format(id);
 
     private sealed record TokenResult(
         string? AccessToken,

@@ -2,7 +2,7 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
-当前阶段：**阶段 9 — 微软正版登录与 Modrinth API**（控制台验证，不含 UI）。
+当前阶段：**阶段 10 — LittleSkin / Yggdrasil 外置登录**（控制台验证，不含 UI）。
 
 ## 解决方案结构
 
@@ -63,7 +63,8 @@ OML.Core/
 │  └─ JavaRuntimeDownloader.cs  # 按 Mojang 清单逐文件下载 JRE
 ├─ Auth/
 │  ├─ OfflineAuthService.cs     # 离线 UUID（UUIDv3）+ 随机令牌
-│  └─ MicrosoftAuthService.cs   # 设备码流 → XBL → XSTS → Minecraft
+│  ├─ MicrosoftAuthService.cs   # 设备码流 → XBL → XSTS → Minecraft
+│  └─ YggdrasilAuthService.cs   # 外置登录（LittleSkin）
 ├─ Configuration/
 │  └─ ConfigManager.cs          # launcher_config.json 读写（原子写入）
 ├─ Modrinth/
@@ -198,6 +199,21 @@ var file    = ModrinthClient.GetPrimaryFile(latest);   // file.Url / file.Hashes
 
 facets 形如 `[["project_type:mod"],["versions:1.20.1"],["categories:fabric"]]`；
 429/5xx 自动重试并尊重 `Retry-After`。
+
+**外置登录**（`YggdrasilAuthService`）：默认 `https://littleskin.cn/api/yggdrasil`。
+
+```csharp
+using var ygg = new YggdrasilAuthService();
+var session = await ygg.LoginAsync(email, password);   // accessToken + 角色 + 皮肤
+await ygg.RefreshAsync(session.AccessToken);           // 静默续期
+var ok = await ygg.ValidateAsync(session.AccessToken); // true/false
+```
+
+- **错误码坑**：Yggdrasil 的"密码错误"和"令牌失效"都返回 **403**（`ForbiddenOperationException`），
+  不是 401。判断用 `YggdrasilException.IsCredentialError`。
+- 响应里的 UUID 是 32 位无连字符形态，转 `UserProfile` 时统一格式化。
+- 登录后会额外拉 `/sessionserver/session/minecraft/profile/{uuid}` 解析皮肤 URL 与模型
+  （`classic`/`slim`）；皮肤失败不影响登录。
 
 ### 门面与配置（UI 层契约）
 
