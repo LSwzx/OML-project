@@ -51,6 +51,7 @@ Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
 Stage6Checks.RunLocal(Check);
 Stage7Checks.RunLocal(Check);
+Stage8Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {
@@ -60,25 +61,38 @@ if (args.Contains("--no-network"))
 else
 {
     var onlyStage5 = args.Contains("--stage5-only");
-    if (!onlyStage5)
+    var onlyStage8 = args.Contains("--stage8-only");
+
+    if (!onlyStage5 && !onlyStage8)
     {
         await RunDownloadChecksAsync();
         await Stage4Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage4", ".minecraft"));
     }
 
-    await Stage5Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+    if (!onlyStage8)
+    {
+        await Stage5Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
 
-    if (!args.Contains("--no-launch"))
-    {
-        await Stage6Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
-        await Stage7Checks.RunNetworkAsync(
-            Check,
-            Path.Combine(Path.GetTempPath(), "oml-stage7", "launcher"),
-            Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+        if (!args.Contains("--no-launch"))
+        {
+            await Stage6Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+            await Stage7Checks.RunNetworkAsync(
+                Check,
+                Path.Combine(Path.GetTempPath(), "oml-stage7", "launcher"),
+                Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+        }
+        else
+        {
+            Console.WriteLine("已跳过真实启动测试（--no-launch）。");
+        }
     }
-    else
+
+    if (!args.Contains("--no-stage8"))
     {
-        Console.WriteLine("已跳过真实启动测试（--no-launch）。");
+        await Stage8Checks.RunNetworkAsync(
+            Check,
+            Path.Combine(Path.GetTempPath(), "oml-stage8", "launcher"),
+            Path.Combine(Path.GetTempPath(), "oml-stage8", ".minecraft"));
     }
 }
 

@@ -2,7 +2,7 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
-当前阶段：**阶段 7 — 启动门面、离线账号与配置持久化**（控制台验证，不含 UI）。
+当前阶段：**阶段 8 — Java 自动下载与多版本管理**（控制台验证，不含 UI）。
 
 ## 解决方案结构
 
@@ -59,7 +59,8 @@ OML.Core/
 ├─ Assets/
 │  └─ AssetDownloader.cs        # 资源索引缓存 + 按 hash 补全
 ├─ Java/
-│  └─ JavaScanner.cs            # JAVA_HOME / 注册表 / 常见目录 / PATH 探测
+│  ├─ JavaScanner.cs            # JAVA_HOME / 注册表 / 常见目录 / PATH 探测
+│  └─ JavaRuntimeDownloader.cs  # 按 Mojang 清单逐文件下载 JRE
 ├─ Auth/
 │  └─ OfflineAuthService.cs     # 离线 UUID（UUIDv3）+ 随机令牌
 ├─ Configuration/
@@ -72,6 +73,8 @@ OML.Core/
 │  └─ JvmLauncher.cs            # 拉起进程 + 日志重定向
 └─ Versioning/
    ├─ GameDirectory.cs          # .minecraft 布局与版本隔离
+   ├─ LocalVersionScanner.cs    # 本地版本扫描 + Forge/Fabric 识别
+   ├─ VersionInstaller.cs       # 一键安装：库/jar/资源/natives/Java
    ├─ PlatformInfo.cs           # os/arch 归一（windows / x86_64 ...）
    ├─ RuleEvaluator.cs          # rules 求值（os / arch / 版本正则 / features）
    ├─ LibraryResolver.cs        # classpath + 下载任务 + natives 选择
@@ -134,6 +137,32 @@ org.lwjgl:lwjgl:3.3.3:natives-windows-arm64  rules: os.name == windows
 > `Unable to delete file ... latest.log: 另一个程序正在使用此文件`，日志轮转失败。
 > `latest.log` 归游戏所有，启动器捕获的进程输出另存一份，两者互补。
 > 确需覆盖可用 `new JvmLauncher(dir, "latest.log")`。
+
+### Java 运行时下载
+
+Mojang **不再以单个压缩包分发 Java**，而是给一份逐文件清单：
+
+```
+all.json (平台 × 组件)
+  → 组件 manifest（~400 个文件）
+    → 每个文件一个 piston-data 地址
+```
+
+所以 `JavaRuntimeDownloader` 的"解压"其实是按相对路径把 400 来个文件铺到
+`runtimes/<component>/`（实测 `java-runtime-gamma`：403 个文件 / 87MB）。
+平台键映射：`windows-x64` / `windows-x86` / `windows-arm64` / `linux` / `linux-i386` /
+`mac-os` / `mac-os-arm64`。
+
+### 版本安装与扫描
+
+- `VersionInstaller`：解析 → 依赖库 → 客户端 jar → 资源 → natives →（可选）Java 运行时。
+  用 `InstallOptions` 控制是否下载资源、`AssetLimit` 限额、是否 `EnsureJava`。
+- `LocalVersionScanner`：遍历 `versions/*/<id>.json`；**坏 JSON 跳过而不是整体失败**
+  （装 Forge 失败、手改文件都会留下残缺 JSON）。加载器识别靠特征库
+  （`net.minecraftforge:` / `net.neoforged:` / `net.fabricmc:` / `org.quiltmc:`），
+  没有特征库时退回 `inheritsFrom`。
+- 规模参考：1.20.1 有 50 个依赖、3598 个资源对象（约 650MB）。测试里用
+  `AssetLimit=200` 控制时长，但"完整任务列表"的断言仍然校验全量 3598 个。
 
 ### 门面与配置（UI 层契约）
 
