@@ -45,6 +45,13 @@ internal static class Stage9Checks
         check("显式 Client ID 优先于环境变量",
             MicrosoftAuthService.ResolveClientId("explicit-id") == "explicit-id");
 
+        check("Mojang 应用白名单错误被翻译成可执行提示",
+            MicrosoftAuthService.DescribeMinecraftApiError(
+                """{"path":"/authentication/login_with_xbox","errorMessage":"Invalid app registration, see https://aka.ms/AppRegInfo for more information"}""")
+            is { } hint && hint.Contains("mce-reviewappid"));
+        check("无关错误不被误判",
+            MicrosoftAuthService.DescribeMinecraftApiError("""{"error":"invalid_grant"}""") is null);
+
         Console.WriteLine("== 42. Modrinth facets ==");
 
         check("三种条件都生成",

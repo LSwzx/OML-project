@@ -179,6 +179,15 @@ all.json (平台 × 组件)
 - XSTS 失败码翻译成人话：`2148916233` 无 Xbox 档案、`2148916235` 地区不支持、`2148916238` 未成年家庭组。
 - `RefreshAsync` 用 refresh token 静默续期，微软轮换时保存新的 refresh token。
 
+> **重要：Mojang 对第三方应用有白名单。**
+> 自建 Azure 应用可以拿到微软令牌、也能通过 Xbox / XSTS，但调用
+> `login_with_xbox` 时会返回 `403 Invalid app registration`。
+> 需要在 https://aka.ms/mce-reviewappid 提交审核，通过后同一个 Client ID 才能使用 Minecraft API。
+> 代码已把这个错误翻译成可执行的提示（`MicrosoftAuthService.DescribeMinecraftApiError`）。
+>
+> 实测链路（用真实账号授权后）：设备码 ✅ → Xbox Live ✅ → XSTS ✅ → Minecraft 登录 ❌（白名单）。
+> 交互式验证：`dotnet run --project OML.Test -- --ms-login`。
+
 **Modrinth**（`ModrinthClient`）：无 API Key，`snake_case` JSON，请求带 UA。
 
 ```csharp

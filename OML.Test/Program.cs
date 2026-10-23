@@ -46,6 +46,12 @@ static bool IsMonotonic(IReadOnlyList<double> values)
     return true;
 }
 
+// 交互式微软登录探针：不跑其它自检，只做一次真实授权。
+if (args.Contains("--ms-login"))
+{
+    return await MicrosoftLoginProbe.RunAsync();
+}
+
 RunAbstractionChecks();
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);

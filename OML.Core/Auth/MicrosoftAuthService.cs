@@ -455,10 +455,43 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
             ? $"HTTP {(int)response.StatusCode}"
             : json[..Math.Min(300, json.Length)]);
 
+        // Minecraft API 对第三方应用有白名单：未提交审核的应用会在这里被 403 拦下。
+        var allowlistHint = DescribeMinecraftApiError(json);
+        if (allowlistHint is not null)
+        {
+            message = allowlistHint;
+        }
+
         return new MicrosoftAuthException(
             $"微软认证请求失败（HTTP {(int)response.StatusCode}）：{message}",
             error,
             ParseAadCode(description));
+    }
+
+    /// <summary>
+    /// 识别 Mojang 的应用白名单错误。
+    /// <para>
+    /// 自建 Azure 应用能拿到微软令牌、也能通过 Xbox/XSTS，但调用
+    /// <c>login_with_xbox</c> 时仍会 403 <c>Invalid app registration</c>——
+    /// Mojang 要求第三方启动器提交审核（<c>https://aka.ms/mce-reviewappid</c>），
+    /// 通过后同一个 Client ID 才能使用 Minecraft API。
+    /// </para>
+    /// </summary>
+    public static string? DescribeMinecraftApiError(string? responseJson)
+    {
+        if (string.IsNullOrWhiteSpace(responseJson))
+        {
+            return null;
+        }
+
+        if (responseJson.Contains("Invalid app registration", StringComparison.OrdinalIgnoreCase) ||
+            responseJson.Contains("mce-reviewappid", StringComparison.OrdinalIgnoreCase))
+        {
+            return "该 Azure 应用尚未通过 Mojang 的第三方应用审核，无法调用 Minecraft API。" +
+                   "请到 https://aka.ms/mce-reviewappid 提交申请（审核通过后同一个 Client ID 即可使用）。";
+        }
+
+        return null;
     }
 
     private static string DescribeXboxError(long code) => code switch
