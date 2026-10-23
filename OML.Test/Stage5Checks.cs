@@ -64,8 +64,14 @@ internal static class Stage5Checks
 
         check("只解压 .dll", extracted.Count == 2 && extracted.All(p => p.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)));
         check("跳过 META-INF 与非 dll", !extracted.Any(p => p.Contains("META-INF") || p.EndsWith(".so")));
-        check("子目录 dll 正确落盘", File.Exists(Path.Combine(nativesDir, "sub", "helper.dll")));
+        check("子目录 dll 被压平到根目录",
+            File.Exists(Path.Combine(nativesDir, "helper.dll")) &&
+            !Directory.Exists(Path.Combine(nativesDir, "sub")));
         check("Zip Slip 被拦截", !File.Exists(Path.Combine(work, "evil.dll")));
+
+        var nestedDir = Path.Combine(work, "natives-nested");
+        NativesExtractor.Extract([jarPath], nestedDir, flatten: false);
+        check("flatten=false 时保留原目录结构", File.Exists(Path.Combine(nestedDir, "sub", "helper.dll")));
 
         Console.WriteLine("== 21. LibraryResolver ==");
 
@@ -130,10 +136,12 @@ internal static class Stage5Checks
 
         check("过滤掉 osx 专属库", resolution.Classpath.All(p => !p.Contains("objc-bridge")));
         check("过滤掉非本机架构的库", resolution.Classpath.All(p => !p.Contains("arch-only")));
-        check("classpath 含主构件（含旧格式 jinput 主 jar）",
-            resolution.Classpath.Count == 3 &&
+        check("classpath 含主构件与现代 natives jar",
+            resolution.Classpath.Count == 4 &&
             resolution.Classpath.Any(p => p.Contains("jinput-platform-2.0.5.jar")) &&
-            !resolution.Classpath.Any(p => p.Contains("natives")));
+            resolution.Classpath.Any(p => p.Contains("lwjgl-3.3.3-natives-windows.jar")) &&
+            resolution.Classpath.All(p => !p.Contains("-native") || p.Contains("-natives-windows.jar")) &&
+            !resolution.Classpath.Any(p => p.Contains("natives-windows-64")));
         check("natives 只选 x64 通用变体",
             resolution.Natives.Count == 3 &&
             resolution.Natives.Any(n => n.Classifier == "natives-windows" && n.JarPath.Contains("lwjgl-3.3.3-natives-windows.jar")) &&
@@ -262,6 +270,9 @@ internal static class Stage5Checks
         check("解压出 dll", extracted.Count > 0);
         check("全部是 .dll", extracted.All(p => p.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)));
         check("落点在 versions/1.21.1/natives 下", extracted.All(p => p.StartsWith(nativesDirectory, StringComparison.OrdinalIgnoreCase)));
+        check("dll 压平后直接位于 natives 根目录（java.library.path 可发现）",
+            extracted.All(p => string.Equals(
+                Path.GetDirectoryName(p), nativesDirectory, StringComparison.OrdinalIgnoreCase)));
         check("包含 lwjgl.dll", extracted.Any(p => Path.GetFileName(p).Equals("lwjgl.dll", StringComparison.OrdinalIgnoreCase)));
         Console.WriteLine($"   解压 {extracted.Count} 个文件，例如：{string.Join(", ", extracted.Select(Path.GetFileName).Take(6))}");
 

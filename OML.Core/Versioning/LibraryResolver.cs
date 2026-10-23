@@ -159,6 +159,14 @@ public sealed class LibraryResolver
 
             downloads.Add(task);
             natives.Add(new NativeJar(chosen.Value.Name, chosen.Value.Classifier, savePath, task));
+
+            // 官方启动器会把 natives jar 一并放进 classpath：LWJGL 3 的 SharedLibraryLoader
+            // 支持直接从 jar 内加载 dll（嵌套路径也能定位），这是 1.19+ 的实际加载方式。
+            // 压平解压到 natives 目录是给 -Djava.library.path 兜底，两条路都留着更稳。
+            if (classpathSet.Add(savePath))
+            {
+                classpath.Add(savePath);
+            }
         }
 
         return new LibraryResolution

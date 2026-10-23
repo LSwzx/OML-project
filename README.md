@@ -89,6 +89,11 @@ org.lwjgl:lwjgl:3.3.3:natives-windows-arm64  rules: os.name == windows
 因此 `LibraryResolver` 按分类器后缀二次筛选，同一 `group:artifact` 只保留一个变体：
 精确匹配当前架构优先，其次回退通用版；旧格式的 `natives-windows-${arch}` 占位符按 64/32 替换。
 
+解压还有第二个坑：LWJGL 3 的 natives jar 内部是 `windows/x64/org/lwjgl/lwjgl.dll` 这种嵌套结构，
+按原路径解压后 `-Djava.library.path=<natives>` 不会递归查找，游戏照样找不到 dll。
+所以 `NativesExtractor` 默认**压平**到目标目录根部；同时 natives jar 也会进 classpath——
+官方启动器就是这么做的（LWJGL 的 `SharedLibraryLoader` 支持直接从 jar 内加载），两条路互为兜底。
+
 ### 资源补全
 
 - 内容寻址：落点固定 `assets/objects/<hash 前两位>/<hash>`，跨版本共享。
