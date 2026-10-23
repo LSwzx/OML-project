@@ -284,6 +284,12 @@ internal static class Stage6Checks
         check("启动预检通过", true);
 
         var arguments = new LaunchArgumentBuilder().Build(options);
+        check("参数构建无未定义变量", arguments.Warnings.Count == 0);
+        foreach (var warning in arguments.Warnings.Take(5))
+        {
+            Console.WriteLine($"   [WARN] {warning}");
+        }
+
         Console.WriteLine($"   参数条数 {arguments.Arguments.Count}，日志目录 {game.GetLogsDirectory("1.21.1")}");
 
         var logsDirectory = game.GetLogsDirectory("1.21.1");

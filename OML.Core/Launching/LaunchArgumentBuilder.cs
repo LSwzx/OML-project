@@ -68,8 +68,20 @@ public sealed class LaunchArgumentBuilder
         }
 
         arguments.Add($"-Xmx{options.MaxMemoryMb}M");
-        arguments.Add($"-Dminecraft.launcher.brand={options.LauncherName}");
-        arguments.Add($"-Dminecraft.launcher.version={options.LauncherVersion}");
+
+        // 1.21.1 的 JVM 模板自己就带 -Dminecraft.launcher.brand=${launcher_name}，
+        // 无条件追加会得到两份重复参数。模板里有就交给模板，没有才补。
+        var jvmTemplate = version.Arguments?.Jvm;
+        if (!TemplateReferences(jvmTemplate, "launcher_name"))
+        {
+            arguments.Add($"-Dminecraft.launcher.brand={options.LauncherName}");
+        }
+
+        if (!TemplateReferences(jvmTemplate, "launcher_version"))
+        {
+            arguments.Add($"-Dminecraft.launcher.version={options.LauncherVersion}");
+        }
+
         arguments.Add("-Dfile.encoding=UTF-8");
 
         // Java 18+ 的 stdout/stderr 仍按系统代码页编码（中文 Windows 是 GBK），
@@ -139,6 +151,8 @@ public sealed class LaunchArgumentBuilder
             ["auth_session"] = string.IsNullOrWhiteSpace(user.AccessToken) ? "0" : user.AccessToken!,
             ["user_type"] = string.Equals(user.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase) ? "msa" : "legacy",
             ["user_properties"] = "{}",
+            ["clientid"] = string.Empty,
+            ["auth_xuid"] = string.Empty,
             ["version_name"] = version.Id,
             ["version_type"] = version.Type,
             ["game_directory"] = gameRoot,
@@ -272,6 +286,27 @@ public sealed class LaunchArgumentBuilder
             warnings.Add($"未定义的启动变量：${{{name}}}");
             return match.Value;
         });
+    }
+
+    /// <summary>判断模板参数里是否引用了某个变量（用于避免重复注入同一组参数）。</summary>
+    private static bool TemplateReferences(IEnumerable<JsonElement>? entries, string variableName)
+    {
+        if (entries is null)
+        {
+            return false;
+        }
+
+        var token = "${" + variableName + "}";
+        foreach (var entry in entries)
+        {
+            if (entry.ValueKind == JsonValueKind.String &&
+                (entry.GetString()?.Contains(token, StringComparison.Ordinal) ?? false))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool ContainsClasspathFlag(IReadOnlyList<string> arguments)
