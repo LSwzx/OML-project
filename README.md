@@ -2,7 +2,7 @@
 
 Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），下载引擎对标 PCL2（多线程、断点续传、镜像测速）。
 
-当前阶段：**阶段 8 — Java 自动下载与多版本管理**（控制台验证，不含 UI）。
+当前阶段：**阶段 9 — 微软正版登录与 Modrinth API**（控制台验证，不含 UI）。
 
 ## 解决方案结构
 
@@ -62,9 +62,12 @@ OML.Core/
 │  ├─ JavaScanner.cs            # JAVA_HOME / 注册表 / 常见目录 / PATH 探测
 │  └─ JavaRuntimeDownloader.cs  # 按 Mojang 清单逐文件下载 JRE
 ├─ Auth/
-│  └─ OfflineAuthService.cs     # 离线 UUID（UUIDv3）+ 随机令牌
+│  ├─ OfflineAuthService.cs     # 离线 UUID（UUIDv3）+ 随机令牌
+│  └─ MicrosoftAuthService.cs   # 设备码流 → XBL → XSTS → Minecraft
 ├─ Configuration/
 │  └─ ConfigManager.cs          # launcher_config.json 读写（原子写入）
+├─ Modrinth/
+│  └─ ModrinthClient.cs         # 搜索 / 项目 / 版本 / 直链（无 API Key）
 ├─ Launching/
 │  ├─ LaunchSession.cs          # 门面：检查→补全→解压→预检→启动→退出
 │  ├─ LaunchOptions.cs          # 启动输入与构建结果
@@ -163,6 +166,29 @@ all.json (平台 × 组件)
   没有特征库时退回 `inheritsFrom`。
 - 规模参考：1.20.1 有 50 个依赖、3598 个资源对象（约 650MB）。测试里用
   `AssetLimit=200` 控制时长，但"完整任务列表"的断言仍然校验全量 3598 个。
+
+### 微软登录与 Modrinth
+
+**微软正版**（`MicrosoftAuthService`）：设备代码流，链路
+`devicecode → token（轮询）→ Xbox Live → XSTS → Minecraft login → profile`。
+
+- `Client ID` 必须是你自己注册的 Azure 应用（Entra ID → 应用注册 → 允许公共客户端流），
+  通过 `OML_MICROSOFT_CLIENT_ID` 环境变量或构造参数注入。项目**不预置**任何第三方 ID。
+- 轮询正确处理 `authorization_pending`（继续等）、`slow_down`（间隔 +5s）、
+  `authorization_declined` / `expired_token`（终止）。
+- XSTS 失败码翻译成人话：`2148916233` 无 Xbox 档案、`2148916235` 地区不支持、`2148916238` 未成年家庭组。
+- `RefreshAsync` 用 refresh token 静默续期，微软轮换时保存新的 refresh token。
+
+**Modrinth**（`ModrinthClient`）：无 API Key，`snake_case` JSON，请求带 UA。
+
+```csharp
+var hits    = await modrinth.SearchAsync("JEI", limit: 5, projectType: "mod", gameVersion: "1.20.1", loader: "fabric");
+var latest  = await modrinth.GetLatestVersionAsync("jei", "1.20.1", "fabric");
+var file    = ModrinthClient.GetPrimaryFile(latest);   // file.Url / file.Hashes.Sha1
+```
+
+facets 形如 `[["project_type:mod"],["versions:1.20.1"],["categories:fabric"]]`；
+429/5xx 自动重试并尊重 `Retry-After`。
 
 ### 门面与配置（UI 层契约）
 
