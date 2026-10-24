@@ -4,15 +4,19 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 17 — 实例隔离、单文件发布与自动更新**。
+当前阶段：**阶段 18 — 自动更新实跑与 CI 发布**。
 
 | 资源（模组） | 光影 | 整合包 |
 |:--:|:--:|:--:|
 | ![资源](docs/mods.png) | ![光影](docs/shader.png) | ![整合包](docs/modpack.png) |
 
-| 依赖树 | 安装 | 设置 |
+| 依赖树 | 更新提示 | 更新后 |
 |:--:|:--:|:--:|
-| ![依赖树](docs/deps-tree.png) | ![安装](docs/install.png) | ![设置](docs/settings.png) |
+| ![依赖树](docs/deps-tree.png) | ![更新提示](docs/update-banner.png) | ![1.0.1](docs/updated-1.0.1.png) |
+
+| 实例 | 安装 | 设置 |
+|:--:|:--:|:--:|
+| ![实例](docs/instances.png) | ![安装](docs/install.png) | ![设置](docs/settings.png) |
 
 ## 解决方案结构
 
@@ -118,6 +122,47 @@ OML.Desktop/
 - **自动更新**：Velopack 1.2，启动时静默检查，发现新版本在窗口顶部显示绿色提示条，
   点"后台下载并重启更新"下载并重启。更新源可用 `OML_UPDATE_SOURCE`
   指向本地目录或 HTTP 服务，方便本地联调（详见 [docs/UPDATE.md](docs/UPDATE.md)）。
+
+### 自动更新实测（阶段 18）
+
+本地完整跑通了 1.0.0 → 1.0.1：
+
+```
+vpk pack -u OML -v 1.0.0 -p publish  →  OML-win-Setup.exe（75.7MB）
+OML-win-Setup.exe --silent            →  %LOCALAPPDATA%\OML\current
+vpk pack -u OML -v 1.0.1 -p publish-1.0.1 -o releases-1.0.1
+OML_UPDATE_SOURCE=releases-1.0.1      →  启动 1.0.0
+```
+
+结果：顶部出现"发现新版本 1.0.1（当前 1.0.0）"→ 点按钮 → 下载、退出、重启，
+`sq.version` 变为 1.0.1，页脚显示 `OML v1.0.1`。
+
+### GitHub Actions 发布
+
+`.github/workflows/release.yml`：推送 `v*` Tag 时自动发布。
+
+1. 安装 .NET 8；
+2. `dotnet publish -c Release -o publish`；
+3. `dotnet tool install -g vpk`（并把 tools 目录加进 PATH）；
+4. `vpk pack`（版本号取自 tag）；
+5. `vpk upload github`，用内置 `GITHUB_TOKEN` 上传 Release。
+
+发布一个新版本只需：
+
+```powershell
+git tag v1.0.2
+git push origin v1.0.2
+```
+
+### 实例元数据
+
+整合包安装时写 `versions/<id>/instance.json`：
+
+```json
+{ "name": "Fabulously Optimized", "icon": "https://cdn.modrinth.com/...png", "packVersion": "5.9.0" }
+```
+
+`LocalVersionScanner` 读取后，主页优先显示 `name` 和 `icon`（图标缺失/损坏时回退到版本 ID）。
 
 ```powershell
 dotnet run --project OML.Desktop

@@ -238,7 +238,7 @@ public partial class ModsViewModel : ObservableObject
         if (SelectedCategoryIndex == 2)
         {
             var slug = SelectedItem.Hit.Slug is { Length: > 0 } hitSlug ? hitSlug : SelectedItem.Hit.ProjectId;
-            await InstallModpackAsync(SelectedItem.Title, slug, LatestVersion);
+            await InstallModpackAsync(SelectedItem.Title, slug, SelectedItem.Hit.IconUrl, LatestVersion);
             return;
         }
 
@@ -389,7 +389,7 @@ public partial class ModsViewModel : ObservableObject
 
             var project = await _client.GetProjectAsync(slug);
             IsBusy = false;
-            await InstallModpackAsync(project.Title, slug, version);
+            await InstallModpackAsync(project.Title, slug, project.IconUrl, version);
         }
         catch (Exception ex)
         {
@@ -401,7 +401,7 @@ public partial class ModsViewModel : ObservableObject
         }
     }
 
-    private async Task InstallModpackAsync(string displayName, string slug, ModrinthVersion version)
+    private async Task InstallModpackAsync(string displayName, string slug, string? iconUrl, ModrinthVersion version)
     {
         var file = ModrinthClient.GetPrimaryFile(version);
         if (file is null)
@@ -452,6 +452,12 @@ public partial class ModsViewModel : ObservableObject
                     DispatcherHelper.Run(() => StatusText = "写入 overrides…");
                     var instanceRoot = Path.Combine(game.VersionsDirectory, instanceId);
                     Directory.CreateDirectory(instanceRoot);
+
+                    // 实例元数据：主页优先显示这里的名字与图标。
+                    var metadata = JsonSerializer.Serialize(
+                        new { name = index.Name, icon = iconUrl, packVersion = version.VersionNumber },
+                        new JsonSerializerOptions { WriteIndented = true });
+                    await File.WriteAllTextAsync(Path.Combine(instanceRoot, "instance.json"), metadata, ct);
 
                     foreach (var overridesName in new[] { "overrides", "client-overrides" })
                     {

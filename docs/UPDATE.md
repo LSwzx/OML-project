@@ -89,3 +89,21 @@ $env:OML_UPDATE_SOURCE = "http://127.0.0.1:8000"
   需要把 `vpk pack` 的 `Releases` 目录整体上传到 GitHub Release，
   且 tag 使用 Velopack 的版本号（如 `1.0.1`）。
 - 版本号来自 `vpk pack -v`，不是 csproj 的 `<Version>`；两者最好保持一致。
+
+## 五、实测记录（1.0.0 → 1.0.1）
+
+2026-10-24 在本机完整跑通，过程与预期一致：
+
+1. `vpk pack -u OML -v 1.0.0 -p publish` 产出 `OML-win-Setup.exe`(75.7MB) 与 `OML-1.0.0-full.nupkg`(68.5MB)；
+2. `OML-win-Setup.exe --silent` 免 UAC 安装到 `%LOCALAPPDATA%\OML`，无弹窗；
+3. 修改版本号到 1.0.1 后 `vpk pack -v 1.0.1 -o releases-1.0.1`；
+4. 设置 `OML_UPDATE_SOURCE=D:\dshprogram\OML_test\releases-1.0.1` 启动已安装的 1.0.0；
+5. 约 3 秒后顶部出现绿色提示条："发现新版本 1.0.1（当前 1.0.0）"；
+6. 点"后台下载并重启更新"→ 应用退出 → 新进程启动；
+7. `%LOCALAPPDATA%\OML\current\sq.version` 里的 `<version>` 变为 `1.0.1`，页脚显示 `OML v1.0.1`。
+
+如果更新提示没出现，按顺序检查：
+
+- 是否从 `Setup.exe` 安装（直接跑 exe 时 Velopack 认为未安装，会静默跳过）；
+- `OML_UPDATE_SOURCE` 是否指向包含 `releases.win.json` 的目录；
+- 版本号是否真的比已安装版本高。

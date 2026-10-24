@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# 发布/打包产物
+publish-*/
+Releases/
+releases-*/

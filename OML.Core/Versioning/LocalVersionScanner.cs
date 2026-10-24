@@ -20,10 +20,17 @@ public sealed record LocalVersionInfo(
     string? Loader,
     bool HasClientJar,
     string JsonPath,
-    string? InheritsFrom = null)
+    string? InheritsFrom = null,
+    string? InstanceName = null,
+    string? IconUrl = null)
 {
-    /// <summary>给 UI 显示的名字，例如 <c>1.20.1-forge (Forge)</c>。</summary>
-    public string DisplayName => Loader is null ? Id : $"{Id} ({Loader})";
+    /// <summary>
+    /// 给 UI 显示的名字：整合包实例优先用 instance.json 里的名字，
+    /// 否则用 <c>id (Loader)</c>。
+    /// </summary>
+    public string DisplayName => !string.IsNullOrWhiteSpace(InstanceName)
+        ? InstanceName!
+        : Loader is null ? Id : $"{Id} ({Loader})";
 }
 
 /// <summary>
@@ -84,6 +91,7 @@ public sealed class LocalVersionScanner
 
             var (isModded, loader) = DetectLoader(detail);
             var jarPath = Path.Combine(directory, $"{id}.jar");
+            var (instanceName, iconUrl) = ReadInstanceMetadata(Path.Combine(directory, "instance.json"));
 
             results.Add(new LocalVersionInfo(
                 string.IsNullOrWhiteSpace(detail.Id) ? id : detail.Id,
@@ -93,7 +101,9 @@ public sealed class LocalVersionScanner
                 loader,
                 File.Exists(jarPath),
                 jsonPath,
-                detail.InheritsFrom));
+                detail.InheritsFrom,
+                instanceName,
+                iconUrl));
         }
 
         return results
@@ -110,6 +120,33 @@ public sealed class LocalVersionScanner
     /// 判断是不是模组版本。优先看加载器特征库（最可靠），
     /// 其次看 <c>inheritsFrom</c>（Forge/Fabric 一定继承原版）。
     /// </summary>
+    /// <summary>
+    /// 读取整合包实例元数据（<c>versions/&lt;id&gt;/instance.json</c>）。
+    /// 缺失或损坏都返回空，不影响扫描。
+    /// </summary>
+    private static (string? Name, string? IconUrl) ReadInstanceMetadata(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            var root = document.RootElement;
+
+            var name = root.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
+            var icon = root.TryGetProperty("icon", out var iconElement) ? iconElement.GetString() : null;
+
+            return (string.IsNullOrWhiteSpace(name) ? null : name, string.IsNullOrWhiteSpace(icon) ? null : icon);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
     public static (bool IsModded, string? Loader) DetectLoader(VersionDetail detail)
     {
         ArgumentNullException.ThrowIfNull(detail);

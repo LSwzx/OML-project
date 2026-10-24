@@ -153,10 +153,12 @@
         <Border Grid.Row="4"
                 Padding="16,6"
                 Background="{DynamicResource ControlFillColorSecondaryBrush}">
-            <TextBlock Text="{Binding ConfigPath, StringFormat=配置文件：{0}}"
-                       Opacity="0.55"
+            <TextBlock Opacity="0.55"
                        FontSize="11"
-                       TextTrimming="CharacterEllipsis" />
+                       TextTrimming="CharacterEllipsis">
+                <Run Text="OML v" /><Run Text="{Binding AppVersion, Mode=OneWay}" />
+                <Run Text="   ·   配置文件：" /><Run Text="{Binding ConfigPath, Mode=OneWay}" />
+            </TextBlock>
         </Border>
     </Grid>
 </ui:FluentWindow>

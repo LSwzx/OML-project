@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 版本号取自 tag（v1.0.0 → 1.0.0）
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+') {
+            throw "Tag '$tag' 不是 v<major>.<minor>.<patch> 格式"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publish
+        run: dotnet publish OML.Desktop/OML.Desktop.csproj -c Release -o publish
+
+      - name: Install vpk
+        shell: pwsh
+        run: |
+          dotnet tool install -g vpk
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          vpk pack `
+            -u OML `
+            -v ${{ steps.version.outputs.version }} `
+            -p publish `
+            -e OML.Desktop.exe `
+            --packTitle "OML" `
+            --packAuthors "LSwzx" `
+            --channel win
+
+      - name: Upload to GitHub Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          vpk upload github `
+            --repoUrl "https://github.com/${{ github.repository }}" `
+            --token "$env:GITHUB_TOKEN" `
+            --publish `
+            --releaseName "OML ${{ github.ref_name }}" `
+            --tag "${{ github.ref_name }}"

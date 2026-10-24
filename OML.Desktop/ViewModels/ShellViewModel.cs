@@ -94,6 +94,10 @@ public partial class ShellViewModel : ObservableObject
 
     public string ConfigPath => _context.ConfigPath;
 
+    /// <summary>程序集版本（发布时由 csproj 的 Version 决定）。</summary>
+    public string AppVersion =>
+        typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+
     /// <summary>
     /// 加载配置并让各页面同步。任何异常向上抛，由 App 统一提示。
     /// </summary>
