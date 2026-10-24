@@ -63,7 +63,12 @@ public partial class SkinPreview3D : UserControl
         group.Children.Add(new RotateTransform3D(_yaw, 0, 18, 0));
         group.Children.Add(new ScaleTransform3D(1.35, 1.35, 1.35));
 
-        var material = new DiffuseMaterial(new ImageBrush(bitmap)
+        // 皮肤像素放大 8 倍（最近邻）：WPF 3D 的纹理过滤固定为线性，
+        // 原尺寸采样时相邻像素/相邻部件会互相渗色，边缘发灰甚至采到透明像素
+        // （看起来像玻璃）。放大后再配合 UV 半像素内缩，渗色基本不可见。
+        var texture = Upscale(bitmap, 8);
+
+        var material = new DiffuseMaterial(new ImageBrush(texture)
         {
             Stretch = Stretch.Fill,
             ViewboxUnits = BrushMappingMode.RelativeToBoundingBox,
@@ -72,7 +77,6 @@ public partial class SkinPreview3D : UserControl
         var geometry = BuildGeometry(bitmap.PixelWidth, bitmap.PixelHeight);
         var model = new GeometryModel3D(geometry, material)
         {
-            BackMaterial = material,
             Transform = group,
         };
 
@@ -115,6 +119,50 @@ public partial class SkinPreview3D : UserControl
             fallback.Freeze();
             return fallback;
         }
+    }
+
+    /// <summary>最近邻放大，保持像素硬边缘（不让插值把相邻像素混在一起）。</summary>
+    private static BitmapSource Upscale(BitmapSource source, int factor)
+    {
+        BitmapSource src = source;
+        if (src.Format != PixelFormats.Bgra32 && src.Format != PixelFormats.Pbgra32)
+        {
+            src = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        }
+
+        var width = src.PixelWidth;
+        var height = src.PixelHeight;
+        var stride = width * 4;
+        var pixels = new byte[stride * height];
+        src.CopyPixels(pixels, stride, 0);
+
+        var newWidth = width * factor;
+        var newHeight = height * factor;
+        var newStride = newWidth * 4;
+        var scaled = new byte[newStride * newHeight];
+
+        for (var y = 0; y < newHeight; y++)
+        {
+            var sourceRow = (y / factor) * stride;
+            var targetRow = y * newStride;
+
+            for (var x = 0; x < newWidth; x++)
+            {
+                Buffer.BlockCopy(pixels, sourceRow + (x / factor) * 4, scaled, targetRow + x * 4, 4);
+            }
+        }
+
+        var result = BitmapSource.Create(
+            newWidth,
+            newHeight,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            scaled,
+            newStride);
+        result.Freeze();
+        return result;
     }
 
     // ---------------------------------------------------------------- 几何
@@ -235,16 +283,34 @@ public partial class SkinPreview3D : UserControl
     {
         var index = mesh.Positions.Count;
 
-        var u0 = region.X / skinWidth;
-        var u1 = (region.X + region.Width) / skinWidth;
-        var v0 = region.Y / skinHeight;
-        var v1 = (region.Y + region.Height) / skinHeight;
+        // Minecraft 皮肤的 UV 表是按 64×64 布局定义的（像素坐标）。
+        // 高清皮肤（128/256）是同一布局的整数倍放大，所以归一化时除数固定是 64，
+        // 而不是图片实际宽度——用 /skinWidth 会让所有区域偏移一半/四分之一。
+        // 64×32 旧皮肤只有上半张，归一化 V 的除数是 32。
+        var legacy = skinHeight <= 32;
+        var uBase = 64d;
+        var vBase = legacy ? 32d : 64d;
+
+        // 采样内缩半个像素：WPF 3D 的纹理过滤是线性的，
+        // 不内缩时面的边缘会采到区域外（相邻部件，甚至透明 overlay），
+        // 表现为边缘发灰、发黑、半透明（看起来像玻璃）。
+        const double InsetPixels = 0.5;
+
+        // 纹理已经被放大 8 倍，半像素内缩也按放大后的尺寸算。
+        var texWidth = skinWidth * 8d;
+        var texHeight = skinHeight * 8d;
+
+        var u0 = region.X / uBase + InsetPixels / texWidth;
+        var u1 = (region.X + region.Width) / uBase - InsetPixels / texWidth;
+        var v0 = region.Y / vBase + InsetPixels / texHeight;
+        var v1 = (region.Y + region.Height) / vBase - InsetPixels / texHeight;
 
         mesh.Positions.Add(topLeft);
         mesh.Positions.Add(bottomLeft);
         mesh.Positions.Add(bottomRight);
         mesh.Positions.Add(topRight);
 
+        // V 轴原点在左上（与像素坐标一致），不需要翻转。
         mesh.TextureCoordinates.Add(new Point(u0, v0));
         mesh.TextureCoordinates.Add(new Point(u0, v1));
         mesh.TextureCoordinates.Add(new Point(u1, v1));
