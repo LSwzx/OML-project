@@ -17,7 +17,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # 生成更新说明需要历史记录和上一个 tag
           fetch-depth: 0
 
       - name: Setup .NET 8
@@ -25,114 +24,78 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # 版本号取自 tag（v1.0.0 → 1.0.0）
       - name: Resolve version
         id: version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
+          $version = "${{ github.ref_name }}".TrimStart('v')
           if ($version -notmatch '^\d+\.\d+\.\d+') {
-            throw "Tag '$tag' 不是 v<major>.<minor>.<patch> 格式"
+            throw "Tag '${{ github.ref_name }}' 不是 v<major>.<minor>.<patch> 格式"
           }
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish
         run: dotnet publish OML.Desktop/OML.Desktop.csproj -c Release -o publish
 
-      - name: Install vpk
+      # Velopack 只用来生成 Setup 载荷，最终不再上传它的资产；
+      # 对外只发 Installer.exe 与 Portable.zip 两个文件。
+      - name: Build Velopack setup payload
         shell: pwsh
         run: |
           dotnet tool install -g vpk
           "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          vpk pack -u OML -v ${{ steps.version.outputs.version }} -p publish -e OML.Desktop.exe -o Releases
 
-      - name: Pack
-        shell: pwsh
-        run: |
-          vpk pack `
-            -u OML `
-            -v ${{ steps.version.outputs.version }} `
-            -p publish `
-            -e OML.Desktop.exe `
-            --packTitle "OML" `
-            --packAuthors "LSwzx" `
-            --channel win `
-            --msi
-
-      - name: Upload to GitHub Release
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          vpk upload github `
-            --repoUrl "https://github.com/${{ github.repository }}" `
-            --token "$env:GITHUB_TOKEN" `
-            --publish `
-            --releaseName "OML ${{ github.ref_name }}" `
-            --tag "${{ github.ref_name }}"
-
-      # 一键安装器没有目录选择页，附带一个图形化选择目录的脚本。
-      - name: Upload installer helper scripts
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ github.ref_name }}" `
-            "scripts/install-oml.ps1" `
-            "scripts/安装到指定目录.cmd" `
-            --clobber
-
-      # Velopack 的 Setup/MSI 都没有目录页，这里用 NSIS 包一层真正的安装向导：
-      # 目录页选好后静默调用 Setup --installto，更新链路仍由 Velopack 负责。
-      - name: Build path-selecting installer (NSIS)
+      - name: Build installer with directory page
         shell: pwsh
         run: |
           choco install nsis -y --no-progress
           New-Item -ItemType Directory -Force -Path installer\payload | Out-Null
           Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
           & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /V2 installer\oml.nsi
-          Get-ChildItem installer\OML-win-Installer.exe | Select-Object Name, Length
+          Move-Item "installer\OML-win-Installer.exe" `
+            "OML-win-${{ steps.version.outputs.version }}-Installer.exe"
 
-      # vpk upload 不保证带上 MSI，且 release 说明默认是英文的自动 changelog。
-      - name: Attach MSI and write Chinese release notes
+      - name: Build portable zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish\* `
+            -DestinationPath "OML-win-${{ steps.version.outputs.version }}-Portable.zip" -Force
+
+      - name: Create release with Chinese notes
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "${{ github.ref_name }}"
-
-          if (Test-Path "Releases\OML-win.msi") {
-            gh release upload $tag "Releases\OML-win.msi" --clobber
-          } else {
-            Write-Warning "没有找到 Releases\OML-win.msi，跳过上传"
-          }
-
-          if (Test-Path "installer\OML-win-Installer.exe") {
-            gh release upload $tag "installer\OML-win-Installer.exe" --clobber
-          }
+          $version = "${{ steps.version.outputs.version }}"
 
           $previous = git describe --tags --abbrev=0 "$tag^" 2>$null
-          if ($previous) {
-            $range = "$previous..$tag"
-            $lines = (git log $range --pretty=format:"- %s") -join "`n"
+          $range = if ($previous) { "$previous..$tag" } else { $tag }
+          $lines = if ($previous) {
+            (git log $range --pretty=format:"- %s") -join "`n"
           } else {
-            $range = $tag
-            $lines = (git log $tag --pretty=format:"- %s" -n 30) -join "`n"
+            (git log $tag --pretty=format:"- %s" -n 30) -join "`n"
           }
 
           $notes = @"
-          ## 本次更新
+          ## OML $version
 
           $lines
 
-          ## 安装说明
+          ### 安装
 
-          - **OML-win.msi**：安装向导可选目录，装到 Program Files 等受保护目录时走 UAC
-          - **OML-win-Setup.exe**：一键安装（按用户，装到 %LocalAppData%\OML）
-          - **OML-win-Portable.zip**：免安装，解压即用
+          - ``OML-win-$version-Installer.exe``：带目录选择页的安装向导（推荐）
+          - ``OML-win-$version-Portable.zip``：免安装，解压即用
 
           完整对比：https://github.com/${{ github.repository }}/compare/$($range.Replace('..', '...'))
           "@
 
           [System.IO.File]::WriteAllText("$PWD\release-notes.md", $notes, [System.Text.UTF8Encoding]::new($false))
-          gh release edit $tag --notes-file "release-notes.md"
+
+          gh release create $tag `
+            --title "OML v$version" `
+            --notes-file release-notes.md `
+            --latest `
+            "OML-win-$version-Installer.exe" `
+            "OML-win-$version-Portable.zip"
