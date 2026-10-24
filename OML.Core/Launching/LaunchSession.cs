@@ -294,11 +294,22 @@ public sealed class LaunchSession : IDisposable
 
         if (!string.IsNullOrWhiteSpace(config.JavaPath) && File.Exists(config.JavaPath))
         {
-            javaPath = config.JavaPath;
+            // 配置里的路径也必须校验主版本：用户之前自动下载过 Java 17，
+            // 之后再启动 1.21（需要 21）时不能继续用旧运行时，否则会以
+            // UnsupportedClassVersionError 直接退出。
+            var configuredMajor = await _javaScanner
+                .GetJavaMajorVersionAsync(config.JavaPath, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (configuredMajor is not null && configuredMajor >= required)
+            {
+                javaPath = config.JavaPath;
+            }
         }
-        else
+
+        if (javaPath is null)
         {
-            // 配置里的路径失效时不要直接失败：回退到自动探测。
+            // 配置不可用（未设置 / 文件不存在 / 版本过低）时回退到自动探测。
             javaPath = await _javaScanner.FindSuitableJavaAsync(required, cancellationToken).ConfigureAwait(false);
         }
 
