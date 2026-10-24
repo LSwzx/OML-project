@@ -82,6 +82,17 @@ jobs:
             "scripts/安装到指定目录.cmd" `
             --clobber
 
+      # Velopack 的 Setup/MSI 都没有目录页，这里用 NSIS 包一层真正的安装向导：
+      # 目录页选好后静默调用 Setup --installto，更新链路仍由 Velopack 负责。
+      - name: Build path-selecting installer (NSIS)
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          New-Item -ItemType Directory -Force -Path installer\payload | Out-Null
+          Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /V2 installer\oml.nsi
+          Get-ChildItem installer\OML-win-Installer.exe | Select-Object Name, Length
+
       # vpk upload 不保证带上 MSI，且 release 说明默认是英文的自动 changelog。
       - name: Attach MSI and write Chinese release notes
         shell: pwsh
@@ -94,6 +105,10 @@ jobs:
             gh release upload $tag "Releases\OML-win.msi" --clobber
           } else {
             Write-Warning "没有找到 Releases\OML-win.msi，跳过上传"
+          }
+
+          if (Test-Path "installer\OML-win-Installer.exe") {
+            gh release upload $tag "installer\OML-win-Installer.exe" --clobber
           }
 
           $previous = git describe --tags --abbrev=0 "$tag^" 2>$null

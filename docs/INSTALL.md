@@ -1,79 +1,66 @@
 # 安装位置
 
-## 结论先说
+## 结论
 
-想要**安装时自己选目录**，请用 **MSI 安装包（`OML-win.msi`）**。
+**想安装时选目录，用 `OML-win-Installer.exe`（NSIS 向导）。**
 
-`OML-win-Setup.exe` 是 Velopack 的一键安装器：它没有目录选择页，
-默认固定装到 `%LocalAppData%\OML`，只能通过命令行 `--installto` 改路径
-（[Velopack 文档](https://docs.velopack.io/packaging/installer)）。
-它按用户安装、不弹 UAC，但这**不是限制，也不该当成优点**——如果你的目标是装到
-`D:\Apps\OML` 或 `C:\Program Files\OML`，用 MSI 更直接。
+Velopack 自己的两个安装包都没有目录页，这是实测结论：
 
-## 方案一：MSI（推荐，安装向导里可选目录）
+| 安装包 | 目录页 | 说明 |
+|:--|:--|:--|
+| **`OML-win-Installer.exe`** | **有**（NSIS 向导，可选任意目录） | 内部调用 Velopack `Setup --installto`，自动更新链路不变 |
+| `OML-win.msi` | **没有**，只有"安装范围"（仅为我 / 所有用户） | MSI 属性 `VELOPACK_INSTALLDIR` 只能在命令行指定 |
+| `OML-win-Setup.exe` | 没有 | 默认 `%LocalAppData%\OML`，仅支持 `--installto` |
+| `OML-win-Portable.zip` | — | 免安装，解压即用 |
 
-双击 `OML-win.msi`：
+之前文档里写"MSI 安装向导可选目录"是错的：MSI 包内确实带 `BrowseDlg` 表，
+但它的 UI 序列里没有目录页，实际只显示安装范围。这一版已改。
 
-- 安装向导带目录选择页（MSI 里包含 WiX 的 `BrowseDlg` 与 `INSTALLFOLDER`）；
-- 选择 `C:\Program Files\...` 这类受保护目录时，Windows 会正常弹出 UAC；
-- 选择用户可写目录（如 `D:\Apps\OML`）时可能免提权，由 MSI 的 dual-mode 逻辑决定。
+## OML-win-Installer.exe
 
-静默安装 / 自动化：
+1. 双击运行，选择目录（默认 `%LocalAppData%\OML`）；
+2. 安装器检查目标目录可写（不可写会直接报错，例如选了 `C:\Program Files`）；
+3. 静默调用 Velopack `Setup.exe --installto "<你选的目录>"`；
+4. Velopack 完成实际安装：注册表卸载项、快捷方式、`Update.exe` 更新链路都在。
+
+所以安装完成后：
+
+- 自动更新仍然可用（更新写回同一个目录）；
+- 卸载仍在"设置 → 应用 → OML"，或 `<安装目录>\Update.exe --uninstall`；
+- 本 NSIS 向导自身不写卸载项、不留文件，避免出现两个 OML 卸载条目。
+
+静默安装（自动化）：
 
 ```cmd
+OML-win-Installer.exe /S /D=D:\Apps\OML
+```
+
+注意 `/D=` 必须是最后一个参数，路径不要加引号（NSIS 语法）。
+
+## 为什么不让选 Program Files
+
+Velopack 是按用户安装 + 按用户更新：更新进程以当前用户身份写安装目录。
+装到 `Program Files` 后普通用户没有写权限，自动更新会失败。
+所以向导会拒绝不可写目录，并提示改用 `D:\Apps\OML` 这类用户可写位置。
+
+如果你确实需要全机器安装（Program Files + 所有用户），那要换掉 Velopack 的更新机制，
+成本明显更高，当前版本没有做。
+
+## 其它安装方式
+
+```cmd
+:: 一键安装（固定路径，按用户）
+OML-win-Setup.exe
+
+:: Setup 指定目录
+OML-win-Setup.exe --installto "D:\Apps\OML"
+
+:: MSI 静默指定目录（机器级，需要管理员）
 msiexec /i OML-win.msi /qn VELOPACK_INSTALLDIR="D:\Apps\OML"
 ```
 
-注意：`/qn` 是静默模式，不会显示向导，必须显式给 `VELOPACK_INSTALLDIR`。
-
-## 方案二：Setup.exe + `--installto`
-
-如果不想用 MSI，Setup.exe 支持指定目录：
-
-```cmd
-OML-win-Setup.exe --installto "D:\Apps\OML"
-```
-
-仓库附带图形化选目录脚本（与 `OML-win-Setup.exe` 放同一目录）：
-
-- `scripts/安装到指定目录.cmd`（双击）
-- `scripts/install-oml.ps1`（`-InstallDir` 可直接指定）
-
-限制：Setup.exe 是**按用户**安装器，装到 `C:\Program Files` 这类目录会遇到权限问题
-（它自己不请求提权）。要装到受保护目录，用 MSI。
-
-## 卸载
-
-**支持**，而且两种安装包都能正常卸载。
-
-### Setup.exe 安装的版本
-
-三种入口等价：
-
-1. Windows 设置 → 应用 → 已安装的应用 → OML → 卸载；
-2. 运行安装目录下的 `Update.exe --uninstall`；
-3. 控制面板 → 程序和功能（按用户安装的条目在 HKCU）。
-
-卸载过程会弹一个"卸载完成"对话框，确认后：
-
-- 删除安装目录（`current`、`packages`、`OML.exe`、`Update.exe`）；
-- 删除开始菜单/桌面快捷方式；
-- 删除注册表卸载项（HKCU Uninstall）。
-
-**不会删除**：
-
-- `%AppData%\OML\launcher_config.json`（启动器配置）；
-- 游戏目录里的 `.minecraft`（存档、模组、资源）。
-
-### MSI 安装的版本
-
-标准 MSI 卸载：
-
-```cmd
-msiexec /x OML-win.msi
-```
-
-或设置 → 应用 → OML → 卸载。机器级安装的卸载会要求管理员权限。
+仓库还附带 PowerShell 图形脚本（`scripts/install-oml.ps1`），等价于 Setup + 目录选择，
+但需要用户手动把它和 Setup.exe 放在一起，不如 `OML-win-Installer.exe` 方便。
 
 ## 配置文件位置
 
@@ -86,11 +73,9 @@ msiexec /x OML-win.msi
 从旧版本升级时，如果 `%LocalAppData%\OML\launcher_config.json` 存在且新位置没有配置，
 启动器会自动复制一次。
 
-## 已经从 C 盘装过的怎么办
+## 卸载
 
-```powershell
-# 卸载旧的一键安装版本
-& "$env:LOCALAPPDATA\OML\Update.exe" --uninstall
-```
+- 设置 → 应用 → OML → 卸载；
+- 或 `<安装目录>\Update.exe --uninstall`。
 
-然后用 MSI 装到目标目录。游戏存档/模组在 `.minecraft`，与安装位置无关。
+删除安装目录、快捷方式和卸载项，**保留** `%AppData%\OML` 配置和 `.minecraft` 游戏数据。

@@ -485,3 +485,5 @@ $RECYCLE.BIN/
 publish-*/
 Releases/
 releases-*/
+installer/payload/
+installer/*.exe
