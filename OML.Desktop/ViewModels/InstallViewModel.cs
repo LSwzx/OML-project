@@ -60,9 +60,6 @@ public partial class InstallViewModel : ObservableObject
     private string searchText = string.Empty;
 
     [ObservableProperty]
-    private bool installAssetsOption = true;
-
-    [ObservableProperty]
     private bool installFabricOption;
 
     [ObservableProperty]
@@ -161,7 +158,6 @@ public partial class InstallViewModel : ObservableObject
         }
 
         SelectedVersion = version;
-        InstallAssetsOption = _context.Config.CompleteAssets;
         InstallFabricOption = false;
         InstallForgeOption = false;
         InstallOptiFineOption = false;
@@ -236,7 +232,7 @@ public partial class InstallViewModel : ObservableObject
         }
 
         var versionId = SelectedVersion.Id;
-        var installAssets = InstallAssetsOption;
+        // 下载默认补齐全部资源，不再提供开关。
         var fabric = InstallFabricOption;
         var forge = InstallForgeOption;
         var optiFine = InstallOptiFineOption;
@@ -262,7 +258,7 @@ public partial class InstallViewModel : ObservableObject
                     versionId,
                     new InstallOptions
                     {
-                        InstallAssets = installAssets,
+                        InstallAssets = true,
                         EnsureJava = false,
                         MaxConcurrency = 8,
                     },
