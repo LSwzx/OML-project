@@ -42,6 +42,39 @@ OML-win-Setup.exe --installto "D:\Apps\OML"
 限制：Setup.exe 是**按用户**安装器，装到 `C:\Program Files` 这类目录会遇到权限问题
 （它自己不请求提权）。要装到受保护目录，用 MSI。
 
+## 卸载
+
+**支持**，而且两种安装包都能正常卸载。
+
+### Setup.exe 安装的版本
+
+三种入口等价：
+
+1. Windows 设置 → 应用 → 已安装的应用 → OML → 卸载；
+2. 运行安装目录下的 `Update.exe --uninstall`；
+3. 控制面板 → 程序和功能（按用户安装的条目在 HKCU）。
+
+卸载过程会弹一个"卸载完成"对话框，确认后：
+
+- 删除安装目录（`current`、`packages`、`OML.exe`、`Update.exe`）；
+- 删除开始菜单/桌面快捷方式；
+- 删除注册表卸载项（HKCU Uninstall）。
+
+**不会删除**：
+
+- `%AppData%\OML\launcher_config.json`（启动器配置）；
+- 游戏目录里的 `.minecraft`（存档、模组、资源）。
+
+### MSI 安装的版本
+
+标准 MSI 卸载：
+
+```cmd
+msiexec /x OML-win.msi
+```
+
+或设置 → 应用 → OML → 卸载。机器级安装的卸载会要求管理员权限。
+
 ## 配置文件位置
 
 配置不在安装目录里，避免更新/卸载被误删：

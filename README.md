@@ -134,6 +134,7 @@ OML.Desktop/
 （`scripts/install-oml.ps1` + `scripts/安装到指定目录.cmd`）。
 
 静默安装：`msiexec /i OML-win.msi /qn VELOPACK_INSTALLDIR="D:\Apps\OML"`。
+卸载：设置 → 应用 → OML，或 `Update.exe --uninstall`（会保留 `%APPDATA%\OML` 配置与游戏数据）。
 详见 [docs/INSTALL.md](docs/INSTALL.md)。
 
 ### 自动更新实测（阶段 18）
