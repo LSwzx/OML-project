@@ -1,8 +1,12 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using OML.Abstractions.Launching;
 using OML.Abstractions.Models;
+using OML.Core.Java;
+using OML.Core.Launching;
 using OML.Core.Loaders;
 using OML.Core.Versioning;
 using OML.Desktop.Infrastructure;
@@ -127,6 +131,138 @@ public partial class InstallViewModel : ObservableObject
         return SelectedVersion is null ? Task.CompletedTask : InstallLoaderForAsync(SelectedVersion.Id, "Forge");
     }
 
+    /// <summary>自动化场景跳过"是否补全资源"的询问，直接沿用设置。</summary>
+    public bool AutoConfirmAssets { get; set; }
+
+    /// <summary>询问是否补全资源；返回 null 表示用户取消了安装。</summary>
+    private bool? AskInstallAssets()
+    {
+        if (AutoConfirmAssets)
+        {
+            return _context.Config.CompleteAssets;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            "是否同时下载完整的游戏资源（推荐，约 800MB）？\n\n不下载也能启动，但可能缺音效、字体或语言文件。",
+            "安装选项",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question);
+
+        return answer switch
+        {
+            System.Windows.MessageBoxResult.Yes => true,
+            System.Windows.MessageBoxResult.No => false,
+            _ => null,
+        };
+    }
+
+    /// <summary>导入 OptiFine 安装包并执行（OptiFine 没有公开的静默安装接口）。</summary>
+    [RelayCommand]
+    private async Task ImportOptiFineAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "选择 OptiFine 安装包",
+            Filter = "OptiFine 安装包 (*.jar)|*.jar",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        await ImportOptiFinePackageAsync(dialog.FileName);
+    }
+
+    /// <summary>执行 OptiFine 安装包，并检测它生成的版本目录。</summary>
+    public async Task ImportOptiFinePackageAsync(string jarPath)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var game = _context.CreateGameDirectory();
+
+            var item = BackgroundTaskManager.Instance.Enqueue("安装 OptiFine", async (progress, ct) =>
+            {
+                var before = Directory.Exists(game.VersionsDirectory)
+                    ? Directory.EnumerateDirectories(game.VersionsDirectory).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    : new HashSet<string?>();
+
+                DispatcherHelper.Run(() => StatusText = "启动 OptiFine 安装器…");
+
+                var javaPath = await new JavaScanner().FindSuitableJavaAsync(8, ct)
+                    ?? throw new InvalidOperationException("没有检测到可运行 OptiFine 安装器的 Java。");
+
+                var arguments = new LaunchArguments
+                {
+                    JavaPath = javaPath,
+                    WorkingDirectory = game.Root,
+                    Arguments = new[] { "-jar", jarPath },
+                };
+
+                using var launcher = new JvmLauncher(Path.Combine(game.Root, "logs", "optifine"));
+                using var process = await launcher.LaunchAsync(arguments, ct);
+
+                try
+                {
+                    await process.WaitForExitAsync(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            process.Kill(entireProcessTree: true);
+                        }
+                    }
+                    catch
+                    {
+                        // 已退出。
+                    }
+
+                    throw;
+                }
+
+                var created = Directory.Exists(game.VersionsDirectory)
+                    ? Directory.EnumerateDirectories(game.VersionsDirectory)
+                        .Select(Path.GetFileName)
+                        .Where(id => id is not null && !before.Contains(id))
+                        .ToArray()
+                    : Array.Empty<string?>();
+
+                if (created.Length == 0)
+                {
+                    throw new InvalidOperationException(
+                        "没有检测到新版本：OptiFine 安装器是图形界面，需要在弹出的窗口里点 Install 再关闭，然后重试。");
+                }
+
+                var versionId = created[0]!;
+                DispatcherHelper.Run(() =>
+                {
+                    StatusText = $"OptiFine 安装完成：{versionId}";
+                    ProgressValue = 100;
+                });
+
+                InstallCompleted?.Invoke(versionId);
+            });
+
+            if (!await item.Completed)
+            {
+                StatusText = item.WasCanceled ? "OptiFine 安装已取消" : $"OptiFine 安装失败：{item.Error}";
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     /// <summary>安装原版（进入全局队列）。</summary>
     public async Task InstallVersionAsync(string versionId)
     {
@@ -138,6 +274,13 @@ public partial class InstallViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            var installAssets = AskInstallAssets();
+            if (installAssets is null)
+            {
+                StatusText = "已取消安装";
+                return;
+            }
+
             var game = _context.CreateGameDirectory();
             var item = BackgroundTaskManager.Instance.Enqueue($"安装 {versionId}", async (progress, ct) =>
             {
@@ -157,7 +300,7 @@ public partial class InstallViewModel : ObservableObject
                     versionId,
                     new InstallOptions
                     {
-                        InstallAssets = _context.Config.CompleteAssets,
+                        InstallAssets = installAssets.Value,
                         EnsureJava = false,
                         MaxConcurrency = 8,
                     },

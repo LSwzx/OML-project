@@ -4,15 +4,15 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 15 — Forge 实机、依赖解析与任务取消**。
+当前阶段：**阶段 16 — 光影、整合包、OptiFine 与安装原子性**。
 
-| 主页 | 安装 | 资源 |
+| 资源（模组） | 光影 | 整合包 |
 |:--:|:--:|:--:|
-| ![主页](docs/screenshot.png) | ![安装](docs/install.png) | ![资源](docs/mods.png) |
+| ![资源](docs/mods.png) | ![光影](docs/shader.png) | ![整合包](docs/modpack.png) |
 
-| Forge 启动 | 任务取消 | 设置 |
+| 依赖树 | 安装 | 设置 |
 |:--:|:--:|:--:|
-| ![Forge](docs/forge-launch.png) | ![取消](docs/task-cancel.png) | ![设置](docs/settings.png) |
+| ![依赖树](docs/deps-tree.png) | ![安装](docs/install.png) | ![设置](docs/settings.png) |
 
 ## 解决方案结构
 
@@ -98,6 +98,17 @@ OML.Desktop/
 - **模组依赖**：下载前解析版本 JSON 的 `dependencies`，对 `required` 项弹窗询问
   是否一并下载；确认后按依赖顺序排队下载到同一个 `mods/`。
   JEI 在 Modrinth 上的 required 依赖实际是 **MezzConfig**（不是 Fabric API）。
+- **依赖树递归**：`ModrinthDependencyResolver` 会继续解析依赖自身的 required 依赖，
+  按 projectId 去重（防循环），深度上限 8 层；下载前用缩进树展示完整链路。
+  实测 JEI → MezzConfig → **Fabric API** 两层都被拉出来。
+- **光影 / 整合包**：资源页按 `project_type` 切换 shader / modpack；
+  光影落 `shaderpacks/`，整合包走 `.mrpack` 流程（解压 → 读 `modrinth.index.json`
+  → 装原版与加载器 → 覆盖 overrides → 下载 files → 切到该实例）。
+  实测 Fabulously Optimized：45 个模组、实例目录 `versions/fabric-loader-0.14.23-1.20.1`。
+- **安装原子性**：安装前写 `versions/&lt;id&gt;/.installing`，成功后删除；
+  启动器启动时扫描并清理带标记的半成品（只删 json/jar/natives，保留 mods/saves/config）。
+- **OptiFine**：官方无公开 API，安装页提供"导入 OptiFine"按钮，
+  执行 `java -jar OptiFine_x.jar` 并在结束后对比 `versions/` 找出新版本。
 
 ```powershell
 dotnet run --project OML.Desktop

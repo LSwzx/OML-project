@@ -90,6 +90,15 @@ public sealed class VersionInstaller : IDisposable
         using var repository = new VersionRepository(_gameDirectory, _http);
         var version = await repository.GetResolvedVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
 
+        // 上次没装完（取消/崩溃）：先清掉启动器管理的半成品，再重装。
+        if (InstallState.IsInstalling(_gameDirectory, version.Id))
+        {
+            Report(progress, LaunchStage.Preparing, 0, $"清理上次未完成的安装：{version.Id}");
+            InstallState.CleanupPartial(_gameDirectory, version.Id);
+        }
+
+        InstallState.Begin(_gameDirectory, version.Id);
+
         Report(progress, LaunchStage.Checking, 0, "解析版本依赖");
         var resolution = new LibraryResolver(_gameDirectory, RuleEvaluator.ForCurrentPlatform()).Resolve(version);
 
@@ -137,6 +146,7 @@ public sealed class VersionInstaller : IDisposable
             }
 
             stopwatch.Stop();
+            InstallState.Complete(_gameDirectory, version.Id);
             Report(progress, LaunchStage.Completed, 1, "安装完成");
 
             return new InstallResult(

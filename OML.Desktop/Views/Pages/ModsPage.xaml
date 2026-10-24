@@ -11,17 +11,26 @@
         <!-- 搜索栏 -->
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBox Grid.Column="0"
+            <ComboBox Grid.Column="0"
+                      ItemsSource="{Binding Categories}"
+                      SelectedIndex="{Binding SelectedCategoryIndex}"
+                      Width="104"
+                      Height="36"
+                      Margin="0,0,8,0"
+                      VerticalContentAlignment="Center" />
+
+            <TextBox Grid.Column="1"
                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                      Height="36"
                      VerticalContentAlignment="Center" />
 
-            <ui:Button Grid.Column="1"
+            <ui:Button Grid.Column="2"
                        Content="搜索"
                        Command="{Binding SearchCommand}"
                        Appearance="Primary"
@@ -29,7 +38,7 @@
                        MinWidth="96"
                        Margin="8,0,0,0" />
 
-            <TextBlock Grid.Column="2"
+            <TextBlock Grid.Column="3"
                        Text="{Binding TargetText}"
                        VerticalAlignment="Center"
                        Opacity="0.6"
@@ -107,7 +116,7 @@
                     <TextBlock Grid.Row="2" Text="{Binding VersionText}" Opacity="0.85" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
 
                     <ui:Button Grid.Row="3"
-                               Content="下载到 mods"
+                               Content="{Binding DownloadButtonText}"
                                Command="{Binding DownloadCommand}"
                                Appearance="Primary"
                                Margin="0,14,0,0"

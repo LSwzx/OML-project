@@ -120,7 +120,7 @@ public sealed class ModrinthClient : IDisposable
     public async Task<ModrinthVersion?> GetLatestVersionAsync(
         string idOrSlug,
         string gameVersion,
-        string loader,
+        string? loader,
         bool preferRelease = false,
         CancellationToken cancellationToken = default)
     {

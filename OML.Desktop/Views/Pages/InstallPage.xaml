@@ -86,6 +86,12 @@
                                    Margin="10,0,0,0"
                                    Height="36"
                                    MinWidth="120" />
+                        <ui:Button Content="导入 OptiFine"
+                                   Command="{Binding ImportOptiFineCommand}"
+                                   Margin="10,0,0,0"
+                                   Height="36"
+                                   MinWidth="130"
+                                   ToolTip="OptiFine 没有公开的静默安装接口，导入后会运行它的图形安装器" />
                     </StackPanel>
                 </StackPanel>
             </Border>

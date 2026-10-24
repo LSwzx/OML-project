@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using OML.Core.Versioning;
 using OML.Desktop.Infrastructure;
 
 namespace OML.Desktop.ViewModels;
@@ -23,6 +24,7 @@ public partial class ShellViewModel : ObservableObject
 
         // 安装成功后主页的版本列表要立刻看到新版本（任务在后台线程完成，必须切回 UI 线程）。
         Install.InstallCompleted += versionId => DispatcherHelper.Run(() => Home.ReloadVersions(versionId));
+        Mods.ContentInstalled += versionId => DispatcherHelper.Run(() => Home.ReloadVersions(versionId));
     }
 
     public HomeViewModel Home { get; }
@@ -51,9 +53,17 @@ public partial class ShellViewModel : ObservableObject
     {
         await _context.InitializeAsync();
 
+        // 清理上次中断的安装（取消/崩溃留在 versions/<id>/.installing）。
+        var cleaned = InstallState.CleanupAll(_context.CreateGameDirectory());
+
         Settings.LoadFromConfig();
         Accounts.RefreshFromConfig();
         Home.ReloadVersions();
+
+        if (cleaned > 0)
+        {
+            Home.StatusText = $"已清理 {cleaned} 个未完成的安装";
+        }
 
         Navigate("home");
     }

@@ -44,6 +44,7 @@ public partial class App : Application
         var autoFabric = ReadArgument(e.Args, "--install-fabric");
         var autoForge = ReadArgument(e.Args, "--install-forge");
         var autoSearch = ReadArgument(e.Args, "--search");
+        var autoModpack = ReadArgument(e.Args, "--modpack");
 
         window.Loaded += async (_, _) =>
         {
@@ -68,6 +69,7 @@ public partial class App : Application
                 if (!string.IsNullOrWhiteSpace(autoInstall))
                 {
                     window.NavigateTo("install");
+                    shell.Install.AutoConfirmAssets = true;
                     await shell.Install.InstallVersionAsync(autoInstall);
                 }
 
@@ -83,9 +85,24 @@ public partial class App : Application
                     await shell.Install.InstallLoaderForAsync(autoForge, "Forge");
                 }
 
+                if (!string.IsNullOrWhiteSpace(autoModpack))
+                {
+                    window.NavigateTo("mods");
+                    await shell.Mods.InstallModpackBySlugAsync(autoModpack);
+                }
+
                 if (!string.IsNullOrWhiteSpace(autoSearch))
                 {
                     window.NavigateTo("mods");
+
+                    var category = ReadArgument(e.Args, "--category");
+                    shell.Mods.SelectedCategoryIndex = category?.ToLowerInvariant() switch
+                    {
+                        "shader" or "光影" => 1,
+                        "modpack" or "整合包" => 2,
+                        _ => 0,
+                    };
+
                     await shell.Mods.SearchAsync(autoSearch);
 
                     if (e.Args.Contains("--download-first"))
