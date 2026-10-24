@@ -108,6 +108,46 @@ RunAbstractionChecks();
     }
 }
 
+// PCL2 / OptiFine 安装器会把 optifine:OptiFine、optifine:launchwrapper-of 这类库
+// 直接放进 libraries/，但 JSON 里既没有 downloads 也没有 url。
+// 只要文件存在就必须进 classpath，否则启动报 ClassNotFoundException。
+{
+    var tempRoot = System.IO.Path.Combine(
+        System.IO.Path.GetTempPath(),
+        "oml-local-lib-" + Guid.NewGuid().ToString("N"));
+
+    try
+    {
+        var jarPath = System.IO.Path.Combine(
+            tempRoot, "libraries", "optifine", "launchwrapper-of", "2.3", "launchwrapper-of-2.3.jar");
+
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(jarPath)!);
+        System.IO.File.WriteAllBytes(jarPath, new byte[] { 0x50, 0x4B, 0x03, 0x04 });
+
+        var game = new OML.Core.Versioning.GameDirectory(tempRoot);
+        var detail = new OML.Abstractions.Models.VersionDetail
+        {
+            Libraries =
+            {
+                new OML.Abstractions.Models.Library { Name = "optifine:launchwrapper-of:2.3" },
+            },
+        };
+
+        var resolution = new OML.Core.Versioning.LibraryResolver(
+                game,
+                OML.Core.Versioning.RuleEvaluator.ForCurrentPlatform())
+            .Resolve(detail);
+
+        Check("classpath 包含只存在于 libraries/ 的库（无 downloads/url）",
+            resolution.Classpath.Any(p => string.Equals(p, jarPath, StringComparison.OrdinalIgnoreCase)) &&
+            resolution.Downloads.Count == 0);
+    }
+    finally
+    {
+        try { System.IO.Directory.Delete(tempRoot, recursive: true); } catch { }
+    }
+}
+
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
 Stage6Checks.RunLocal(Check);

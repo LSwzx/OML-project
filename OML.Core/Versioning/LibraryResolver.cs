@@ -125,9 +125,24 @@ public sealed class LibraryResolver
             }
 
             // 普通库。
-            var resolved = ResolveArtifact(library, coordinate, warnings, suppressWarning: legacyNative is not null);
+            // PCL2 / OptiFine 安装器生成的 JSON 里，optifine:OptiFine、optifine:launchwrapper-of
+            // 这类库既没有 downloads 也没有 url，但 jar 已经放在 libraries/ 下。
+            // 只看 JSON 会把它漏出 classpath，启动时报
+            // ClassNotFoundException: net.minecraft.launchwrapper.Launch。
+            var localPath = CombineLibraries(coordinate.RelativePath);
+            var resolved = ResolveArtifact(
+                library,
+                coordinate,
+                warnings,
+                suppressWarning: legacyNative is not null || File.Exists(localPath));
+
             if (resolved is null)
             {
+                if (File.Exists(localPath) && classpathSet.Add(localPath))
+                {
+                    classpath.Add(localPath);
+                }
+
                 continue;
             }
 
