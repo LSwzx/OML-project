@@ -155,6 +155,17 @@ public partial class App : Application
                     shell.Home.LaunchCommand.Execute(null);
                 }
 
+                // 自动化/诊断：立刻检查并安装更新（若有），用于本地更新链路验证。
+                if (e.Args.Contains("--update-now"))
+                {
+                    var check = await shell.Updates.CheckDetailedAsync();
+                    if (check.Status == UpdateCheckStatus.UpdateAvailable && check.Update is { } available)
+                    {
+                        await shell.Updates.DownloadAndRestartAsync(available);
+                        return;
+                    }
+                }
+
                 // 静默检查更新：不阻塞启动，失败也不提示。
                 _ = shell.CheckForUpdatesAsync();
             }

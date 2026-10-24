@@ -46,6 +46,12 @@ public sealed class LauncherConfig
     [JsonPropertyName("completeAssets")]
     public bool CompleteAssets { get; set; } = true;
 
+    /// <summary>
+    /// 启动时是否自动检查更新（安装版生效；便携版无更新器）。
+    /// </summary>
+    [JsonPropertyName("autoCheckUpdates")]
+    public bool AutoCheckUpdates { get; set; } = true;
+
     /// <summary>批量下载并发上限。</summary>
     [JsonPropertyName("maxDownloadConcurrency")]
     public int MaxDownloadConcurrency { get; set; } = 8;

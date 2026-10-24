@@ -4,7 +4,7 @@ Windows 平台的 Minecraft 启动器。架构参考 HMCL 的分层解耦，下�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前版本：**1.1.1**（正式版）
+当前版本：**1.1.2**（正式版）
 
 ![主页](docs/ui-home.png)
 
@@ -37,8 +37,8 @@ Windows 平台的 Minecraft 启动器。架构参考 HMCL 的分层解耦，下�
 
 | 安装包 | 说明 |
 |:--|:--|
-| `OML-win-1.1.1-Installer.exe` | 带目录选择页的安装向导（推荐） |
-| `OML-win-1.1.1-Portable.zip` | 免安装，解压即用 |
+| `OML-win-1.1.2-Installer.exe` | 带目录选择页的安装向导（推荐） |
+| `OML-win-1.1.2-Portable.zip` | 免安装，解压即用 |
 
 安装向导会校验目录可写；装到 `Program Files` 这类受保护目录会导致后续自动更新失败，
 因此建议选择用户可写位置（如 `D:\Apps\OML`）。
@@ -109,14 +109,14 @@ WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`；发布配置已�
 
 ```powershell
 # 1. Velopack：生成 Setup 与更新包
-vpk pack -u OML -v 1.1.1 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
+vpk pack -u OML -v 1.1.2 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
 
 # 2. NSIS：把 Setup 包进带目录页的向导
 Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
 & "$env:ProgramFiles(x86)\NSIS\makensis.exe" installer\oml.nsi
 
 # 3. 便携版
-Compress-Archive publish\* OML-win-1.1.1-Portable.zip
+Compress-Archive publish\* OML-win-1.1.2-Portable.zip
 ```
 
 ## 调试参数
@@ -142,10 +142,16 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 点击后后台下载并重启。更新源可用环境变量 `OML_UPDATE_SOURCE` 指向本地目录或 HTTP 服务，
 便于本地联调（详见 `docs/UPDATE.md`）。
 
-> 1.1.x 的 Release 按要求只提供安装包与便携版，未附带 Velopack 更新源文件；
-> 自动更新将在后续版本的发布资产中启用。
+
 
 ## 版本历史
+
+### 1.1.2（正式版）
+
+- 内置自动更新：安装版启动时静默检查新版本，顶部提示条可后台下载并重启升级
+- 设置新增「启动时自动检查更新」开关
+- 发布资产增加 Velopack 更新源（`releases.win.json`、`assets.win.json`、`*.nupkg`）
+- 启动器图标换成 OML 洋葱 Logo（exe、窗口、安装向导一致）
 
 ### 1.1.1（正式版）
 

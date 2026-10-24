@@ -57,9 +57,14 @@ public partial class ShellViewModel : ObservableObject
 
     private Velopack.UpdateInfo? _pendingUpdate;
 
-    /// <summary>启动时静默检查更新；失败不影响使用。</summary>
-    public async Task CheckForUpdatesAsync()
+    /// <summary>启动时静默检查更新；未开启自动检查或失败时都不影响使用。</summary>
+    public async Task CheckForUpdatesAsync(bool force = false)
     {
+        if (!force && !_context.Config.AutoCheckUpdates)
+        {
+            return;
+        }
+
         var update = await Updates.CheckAsync();
         if (update is null)
         {

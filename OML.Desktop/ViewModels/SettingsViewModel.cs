@@ -46,6 +46,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool completeAssets = true;
 
+    /// <summary>启动时自动检查更新。</summary>
+    [ObservableProperty]
+    private bool autoCheckUpdates = true;
+
     [ObservableProperty]
     private bool versionIsolation;
 
@@ -265,6 +269,7 @@ public partial class SettingsViewModel : ObservableObject
             GameDirectory = _context.Config.GameDirectory;
             MaxMemoryMB = Math.Clamp(_context.Config.MaxMemoryMB, 1024, 8192);
             CompleteAssets = _context.Config.CompleteAssets;
+            AutoCheckUpdates = _context.Config.AutoCheckUpdates;
             VersionIsolation = _context.Config.VersionIsolation;
             JavaPath = _context.Config.JavaPath;
         }
@@ -279,6 +284,8 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnMaxMemoryMBChanged(double value) => QueueSave();
 
     partial void OnCompleteAssetsChanged(bool value) => QueueSave();
+
+    partial void OnAutoCheckUpdatesChanged(bool value) => QueueSave();
 
     partial void OnVersionIsolationChanged(bool value) => QueueSave();
 
@@ -303,6 +310,7 @@ public partial class SettingsViewModel : ObservableObject
             config.GameDirectory = GameDirectory?.Trim() ?? string.Empty;
             config.MaxMemoryMB = (int)Math.Round(MaxMemoryMB);
             config.CompleteAssets = CompleteAssets;
+            config.AutoCheckUpdates = AutoCheckUpdates;
             config.VersionIsolation = VersionIsolation;
             config.JavaPath = JavaPath?.Trim() ?? string.Empty;
 

@@ -87,15 +87,22 @@ jobs:
 
           - ``OML-win-$version-Installer.exe``：带目录选择页的安装向导（推荐）
           - ``OML-win-$version-Portable.zip``：免安装，解压即用
+          - ``OML-$version-full.nupkg`` / ``releases.win.json``：安装版自动更新源
 
           完整对比：https://github.com/${{ github.repository }}/compare/$($range.Replace('..', '...'))
           "@
 
           [System.IO.File]::WriteAllText("$PWD\release-notes.md", $notes, [System.Text.UTF8Encoding]::new($false))
 
+          $nupkg = Get-ChildItem Releases -Filter "*.nupkg" | Select-Object -First 1
+          if (-not $nupkg) { throw "vpk 没有生成 nupkg，自动更新源无法发布" }
+
           gh release create $tag `
             --title "OML v$version" `
             --notes-file release-notes.md `
             --latest `
             "OML-win-$version-Installer.exe" `
-            "OML-win-$version-Portable.zip"
+            "OML-win-$version-Portable.zip" `
+            $nupkg.FullName `
+            "Releases\releases.win.json" `
+            "Releases\assets.win.json"
