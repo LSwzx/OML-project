@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 生成更新说明需要历史记录和上一个 tag
+          fetch-depth: 0
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -78,3 +81,43 @@ jobs:
             "scripts/install-oml.ps1" `
             "scripts/安装到指定目录.cmd" `
             --clobber
+
+      # vpk upload 不保证带上 MSI，且 release 说明默认是英文的自动 changelog。
+      - name: Attach MSI and write Chinese release notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+
+          if (Test-Path "Releases\OML-win.msi") {
+            gh release upload $tag "Releases\OML-win.msi" --clobber
+          } else {
+            Write-Warning "没有找到 Releases\OML-win.msi，跳过上传"
+          }
+
+          $previous = git describe --tags --abbrev=0 "$tag^" 2>$null
+          if ($previous) {
+            $range = "$previous..$tag"
+            $lines = (git log $range --pretty=format:"- %s") -join "`n"
+          } else {
+            $range = $tag
+            $lines = (git log $tag --pretty=format:"- %s" -n 30) -join "`n"
+          }
+
+          $notes = @"
+          ## 本次更新
+
+          $lines
+
+          ## 安装说明
+
+          - **OML-win.msi**：安装向导可选目录，装到 Program Files 等受保护目录时走 UAC
+          - **OML-win-Setup.exe**：一键安装（按用户，装到 %LocalAppData%\OML）
+          - **OML-win-Portable.zip**：免安装，解压即用
+
+          完整对比：https://github.com/${{ github.repository }}/compare/$($range.Replace('..', '...'))
+          "@
+
+          [System.IO.File]::WriteAllText("$PWD\release-notes.md", $notes, [System.Text.UTF8Encoding]::new($false))
+          gh release edit $tag --notes-file "release-notes.md"
