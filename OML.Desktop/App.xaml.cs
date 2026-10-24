@@ -17,7 +17,7 @@ namespace OML.Desktop;
 public partial class App : Application
 {
     /// <summary>品牌色。不跟随系统强调色，避免用户换绿色主题后整个启动器变荧光绿。</summary>
-    private static readonly Color BrandAccent = Color.FromRgb(0x4C, 0x8B, 0xF5);
+    private static readonly Color BrandAccent = Color.FromRgb(0x1B, 0xD9, 0x6A);
 
     /// <summary>全局外壳 ViewModel（导航页从这里取自己的 DataContext）。</summary>
     public static ShellViewModel? Shell { get; private set; }
@@ -65,6 +65,9 @@ public partial class App : Application
         var shell = new ShellViewModel(context);
         Shell = shell;
         var window = new MainWindow { DataContext = shell };
+
+        // 页面内按钮（版本设置/模组管理…）通过 Shell 请求导航。
+        shell.NavigationRequested += tag => window.NavigateTo(tag);
 
         var gameDirectoryOverride = ReadArgument(e.Args, "--game-dir");
         var initialPage = ReadArgument(e.Args, "--nav");

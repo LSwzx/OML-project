@@ -4,22 +4,24 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:pages="clr-namespace:OML.Desktop.Views.Pages"
                  Title="OML · Onion Minecraft Launcher"
-                 Width="1120" Height="760"
-                 MinWidth="900" MinHeight="600"
+                 Width="1180" Height="780"
+                 MinWidth="960" MinHeight="640"
                  WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <SolidColorBrush x:Key="OMLSurface" Color="#1C1F24" />
+        <SolidColorBrush x:Key="OMLBorder" Color="#2C3138" />
+        <SolidColorBrush x:Key="OMLGreen" Color="#1BD96A" />
     </Window.Resources>
 
-    <Grid>
+    <Grid Background="#121418">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -28,11 +30,12 @@
         <!-- 自动更新提示条 -->
         <Border Grid.Row="1"
                 Padding="16,7"
-                Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
+                Background="#14351F"
                 Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <TextBlock Text="{Binding UpdateText}"
                            FontSize="12"
+                           Foreground="{StaticResource OMLGreen}"
                            VerticalAlignment="Center"
                            Margin="0,0,220,0"
                            TextTrimming="CharacterEllipsis" />
@@ -48,7 +51,7 @@
         <ui:NavigationView x:Name="RootNavigation"
                            Grid.Row="2"
                            PaneDisplayMode="Left"
-                           OpenPaneLength="200"
+                           OpenPaneLength="240"
                            IsBackButtonVisible="Collapsed"
                            IsPaneToggleVisible="False">
             <ui:NavigationView.MenuItems>
@@ -59,13 +62,15 @@
                         <ui:SymbolIcon Symbol="Home24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="安装"
+
+                <ui:NavigationViewItem Content="下载中心"
                                        Tag="install"
                                        TargetPageType="{x:Type pages:InstallPage}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="ArrowDownload24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+
                 <ui:NavigationViewItem Content="资源"
                                        Tag="mods"
                                        TargetPageType="{x:Type pages:ModsPage}">
@@ -73,6 +78,7 @@
                         <ui:SymbolIcon Symbol="PuzzlePiece24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+
                 <ui:NavigationViewItem Content="账号"
                                        Tag="accounts"
                                        TargetPageType="{x:Type pages:AccountsPage}">
@@ -80,6 +86,15 @@
                         <ui:SymbolIcon Symbol="Person24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+
+                <ui:NavigationViewItem Content="皮肤"
+                                       Tag="skin"
+                                       TargetPageType="{x:Type pages:SkinPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="PaintBrush24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
                 <ui:NavigationViewItem Content="设置"
                                        Tag="settings"
                                        TargetPageType="{x:Type pages:SettingsPage}">
@@ -90,75 +105,65 @@
             </ui:NavigationView.MenuItems>
         </ui:NavigationView>
 
-        <!-- 全局任务状态条 -->
+        <!-- 底部：全局任务状态卡片 -->
         <Border Grid.Row="3"
-                Padding="16,5"
-                Background="{DynamicResource ControlFillColorSecondaryBrush}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                Margin="12,0,12,10"
+                Padding="14,10"
+                CornerRadius="10"
+                Background="{StaticResource OMLSurface}"
+                BorderBrush="{StaticResource OMLBorder}"
+                BorderThickness="1">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock Text="{Binding Tasks.CurrentTaskText}"
-                           FontSize="12"
-                           MinWidth="180"
-                           VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Tasks.HasFailed}" Value="True">
-                                    <Setter Property="Foreground" Value="#FF6B6B" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Tasks.CurrentTaskText}"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#D6DCE3" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tasks.HasFailed}" Value="True">
+                                        <Setter Property="Foreground" Value="#FF6B6B" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
-                <ProgressBar Grid.Column="1"
-                             Margin="12,0"
-                             Height="4"
-                             VerticalAlignment="Center"
+                    <ui:Button Grid.Column="1" Content="取消"
+                               Command="{Binding Tasks.CancelCommand}"
+                               Height="24" Padding="10,0" Margin="8,0,0,0"
+                               Visibility="{Binding Tasks.CanCancel, Converter={StaticResource BoolToVis}}" />
+
+                    <ui:Button Grid.Column="2" Content="重试"
+                               Command="{Binding Tasks.RetryCommand}"
+                               Height="24" Padding="10,0" Margin="8,0,0,0"
+                               Appearance="Primary"
+                               Visibility="{Binding Tasks.HasFailed, Converter={StaticResource BoolToVis}}" />
+
+                    <TextBlock Grid.Column="3"
+                               Text="{Binding Tasks.PendingCount, StringFormat=队列 {0}}"
+                               FontSize="11"
+                               Opacity="0.5"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,0" />
+                </Grid>
+
+                <ProgressBar Height="3"
+                             Margin="0,8,0,0"
                              Minimum="0"
                              Maximum="100"
                              Value="{Binding Tasks.CurrentProgress}" />
-
-                <ui:Button Grid.Column="2"
-                           Content="取消"
-                           Command="{Binding Tasks.CancelCommand}"
-                           Height="24"
-                           Padding="10,0"
-                           Margin="0,0,8,0"
-                           Visibility="{Binding Tasks.CanCancel, Converter={StaticResource BoolToVis}}" />
-
-                <ui:Button Grid.Column="3"
-                           Content="重试"
-                           Command="{Binding Tasks.RetryCommand}"
-                           Height="24"
-                           Padding="10,0"
-                           Margin="0,0,8,0"
-                           Appearance="Primary"
-                           Visibility="{Binding Tasks.HasFailed, Converter={StaticResource BoolToVis}}" />
-
-                <TextBlock Grid.Column="4" FontSize="11" Opacity="0.6" VerticalAlignment="Center">
-                    <Run Text="队列 " /><Run Text="{Binding Tasks.PendingCount, Mode=OneWay}" />
-                </TextBlock>
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="4"
-                Padding="16,6"
-                Background="{DynamicResource ControlFillColorSecondaryBrush}">
-            <TextBlock Opacity="0.55"
-                       FontSize="11"
-                       TextTrimming="CharacterEllipsis">
-                <Run Text="OML v" /><Run Text="{Binding AppVersion, Mode=OneWay}" />
-                <Run Text="   ·   配置文件：" /><Run Text="{Binding ConfigPath, Mode=OneWay}" />
-            </TextBlock>
+            </StackPanel>
         </Border>
     </Grid>
 </ui:FluentWindow>

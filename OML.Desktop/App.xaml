@@ -8,6 +8,13 @@
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- 圆角：WPF-UI 控件统一从这里取 -->
+            <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+            <CornerRadius x:Key="OverlayCornerRadius">10</CornerRadius>
+
+            <!-- Modrinth 绿 -->
+            <SolidColorBrush x:Key="OMLGreenBrush" Color="#1BD96A" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

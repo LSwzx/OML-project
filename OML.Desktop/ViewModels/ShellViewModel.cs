@@ -41,6 +41,11 @@ public partial class ShellViewModel : ObservableObject
     /// <summary>全局任务队列（底部状态条绑定它）。</summary>
     public BackgroundTaskManager Tasks => BackgroundTaskManager.Instance;
 
+    /// <summary>页面内请求导航（主页的"版本设置/模组管理"等按钮用）。</summary>
+    public event Action<string>? NavigationRequested;
+
+    public void RequestNavigation(string tag) => NavigationRequested?.Invoke(tag);
+
     /// <summary>自动更新（Velopack）。</summary>
     public UpdateService Updates { get; } = new();
 
@@ -124,5 +129,10 @@ public partial class ShellViewModel : ObservableObject
     public void Navigate(string tag)
     {
         CurrentTag = tag;
+
+        if (string.Equals(tag, "home", StringComparison.OrdinalIgnoreCase))
+        {
+            Home.RefreshAccount();
+        }
     }
 }

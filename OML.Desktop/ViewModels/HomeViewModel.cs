@@ -52,11 +52,86 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private bool isBusy;
 
-    public bool CanLaunch => !IsBusy && SelectedVersion is not null;
+    /// <summary>当前选中的平台（Java / 基岩）。</summary>
+    [ObservableProperty]
+    private CurrentPlatform currentPlatform = CurrentPlatform.Java;
+
+    [ObservableProperty]
+    private bool isVersionPickerOpen;
+
+    [ObservableProperty]
+    private string bedrockVersionText = "未安装基岩版，点此下载";
+
+    [ObservableProperty]
+    private string accountName = "未登录";
+
+    [ObservableProperty]
+    private string accountTypeText = "点击登录";
+
+    [ObservableProperty]
+    private string accountInitial = "?";
+
+    public bool IsJavaSelected => CurrentPlatform == CurrentPlatform.Java;
+
+    public bool IsBedrockSelected => CurrentPlatform == CurrentPlatform.Bedrock;
+
+    public string LaunchButtonText => IsJavaSelected ? "启动 Java 游戏" : "启动基岩版";
+
+    public string SelectedVersionTitle => SelectedVersion?.DisplayName ?? "未选择版本";
+
+    public string SelectedVersionSubtitle => SelectedVersion is null
+        ? "还没有安装任何版本"
+        : $"{(SelectedVersion.IsModded ? SelectedVersion.Loader ?? "Modded" : "原版")} · {SelectedVersion.Type}";
+
+    public bool CanLaunch => !IsBusy && (CurrentPlatform == CurrentPlatform.Bedrock || SelectedVersion is not null);
 
     partial void OnIsBusyChanged(bool value) => LaunchCommand.NotifyCanExecuteChanged();
 
-    partial void OnSelectedVersionChanged(LocalVersionInfo? value) => LaunchCommand.NotifyCanExecuteChanged();
+    partial void OnCurrentPlatformChanged(CurrentPlatform value)
+    {
+        OnPropertyChanged(nameof(IsJavaSelected));
+        OnPropertyChanged(nameof(IsBedrockSelected));
+        OnPropertyChanged(nameof(LaunchButtonText));
+        LaunchCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedVersionChanged(LocalVersionInfo? value)
+    {
+        OnPropertyChanged(nameof(SelectedVersionTitle));
+        OnPropertyChanged(nameof(SelectedVersionSubtitle));
+        LaunchCommand.NotifyCanExecuteChanged();
+    }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void SelectJava() => CurrentPlatform = CurrentPlatform.Java;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void SelectBedrock() => CurrentPlatform = CurrentPlatform.Bedrock;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ToggleVersionPicker() => IsVersionPickerOpen = !IsVersionPickerOpen;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void CloseVersionPicker() => IsVersionPickerOpen = false;
+
+    /// <summary>账号页登录/切换后刷新右侧账号卡片。</summary>
+    public void RefreshAccount()
+    {
+        var profile = _context.Config.UserProfile;
+
+        AccountName = string.IsNullOrWhiteSpace(profile?.Username) ? "未登录" : profile!.Username;
+        AccountInitial = string.IsNullOrWhiteSpace(profile?.Username)
+            ? "?"
+            : profile!.Username[..1].ToUpperInvariant();
+
+        AccountTypeText = profile?.Type switch
+        {
+            AuthTypes.Microsoft => "微软正版",
+            AuthTypes.LittleSkin => "外置登录",
+            AuthTypes.Offline => "离线账号",
+            _ => "点击登录",
+        };
+    }
 
     /// <summary>扫描本地版本（由 Shell 在初始化后调用）。</summary>
     public void ReloadVersions(string? preferredId = null)    {
@@ -78,6 +153,8 @@ public partial class HomeViewModel : ObservableObject
             StatusText = Versions.Count == 0
                 ? "未找到本地版本，请先把版本安装到游戏目录"
                 : $"找到 {Versions.Count} 个本地版本";
+
+            RefreshAccount();
         }
         catch (Exception ex)
         {
@@ -92,6 +169,16 @@ public partial class HomeViewModel : ObservableObject
     [CommunityToolkit.Mvvm.Input.RelayCommand(CanExecute = nameof(CanLaunch))]
     private async Task LaunchAsync()
     {
+        if (CurrentPlatform == CurrentPlatform.Bedrock)
+        {
+            System.Windows.MessageBox.Show(
+                "基岩版需要微软正版账号登录，且当前版本尚未内置基岩版运行时。\n\n请切换到 Java 版启动。",
+                "暂不支持启动基岩版",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
         if (SelectedVersion is null)
         {
             return;
