@@ -1,44 +1,46 @@
 # 安装位置
 
-## 默认行为
+## 结论先说
 
-Velopack 的一键安装器（`OML-win-Setup.exe`）**没有目录选择页**，
-默认按用户安装到 `%LocalAppData%\OML`（即 `C:\Users\<你>\AppData\Local\OML`）。
-好处是不需要管理员权限；代价是没法在安装界面里改路径。
+想要**安装时自己选目录**，请用 **MSI 安装包（`OML-win.msi`）**。
 
-官方还没有实现带目录选择的向导安装器（[velopack#30](https://github.com/velopack/velopack/issues/30)），
-但安装器本身支持指定路径。
+`OML-win-Setup.exe` 是 Velopack 的一键安装器：它没有目录选择页，
+默认固定装到 `%LocalAppData%\OML`，只能通过命令行 `--installto` 改路径
+（[Velopack 文档](https://docs.velopack.io/packaging/installer)）。
+它按用户安装、不弹 UAC，但这**不是限制，也不该当成优点**——如果你的目标是装到
+`D:\Apps\OML` 或 `C:\Program Files\OML`，用 MSI 更直接。
 
-## 方案一：用自带脚本选目录（推荐）
+## 方案一：MSI（推荐，安装向导里可选目录）
 
-把 `install-oml.ps1` 和 `安装到指定目录.cmd` 与 `OML-win-Setup.exe` 放在同一目录，
-双击 `安装到指定目录.cmd`，会弹出文件夹选择框：
+双击 `OML-win.msi`：
 
-```
-选择目录 → Setup.exe --installto "<你选的目录>" → 完成
-```
+- 安装向导带目录选择页（MSI 里包含 WiX 的 `BrowseDlg` 与 `INSTALLFOLDER`）；
+- 选择 `C:\Program Files\...` 这类受保护目录时，Windows 会正常弹出 UAC；
+- 选择用户可写目录（如 `D:\Apps\OML`）时可能免提权，由 MSI 的 dual-mode 逻辑决定。
 
-也可以命令行直接指定：
-
-```powershell
-.\install-oml.ps1 -InstallDir "D:\Apps\OML"
-```
-
-说明：
-
-- 目录就是安装根目录，里面会出现 `current\`、`packages\`、`OML.exe`、`Update.exe`；
-- **仍然按用户安装，不需要管理员权限**；
-- 之后自动更新会继续装在这个目录（`Update.exe` 记录的安装位置就是它）。
-
-## 方案二：MSI 机器级安装
-
-发布里同时生成了 `OML-win.msi`，可以用 MSI 属性指定目录：
+静默安装 / 自动化：
 
 ```cmd
 msiexec /i OML-win.msi /qn VELOPACK_INSTALLDIR="D:\Apps\OML"
 ```
 
-MSI 是机器级安装，需要管理员权限，适合多用户/受管环境。
+注意：`/qn` 是静默模式，不会显示向导，必须显式给 `VELOPACK_INSTALLDIR`。
+
+## 方案二：Setup.exe + `--installto`
+
+如果不想用 MSI，Setup.exe 支持指定目录：
+
+```cmd
+OML-win-Setup.exe --installto "D:\Apps\OML"
+```
+
+仓库附带图形化选目录脚本（与 `OML-win-Setup.exe` 放同一目录）：
+
+- `scripts/安装到指定目录.cmd`（双击）
+- `scripts/install-oml.ps1`（`-InstallDir` 可直接指定）
+
+限制：Setup.exe 是**按用户**安装器，装到 `C:\Program Files` 这类目录会遇到权限问题
+（它自己不请求提权）。要装到受保护目录，用 MSI。
 
 ## 配置文件位置
 
@@ -51,10 +53,11 @@ MSI 是机器级安装，需要管理员权限，适合多用户/受管环境。
 从旧版本升级时，如果 `%LocalAppData%\OML\launcher_config.json` 存在且新位置没有配置，
 启动器会自动复制一次。
 
-## 已经把装到 C 盘的版本移到别的盘
+## 已经从 C 盘装过的怎么办
 
-1. 先卸载：`%LocalAppData%\OML\Update.exe --uninstall`（或设置 → 应用 → OML → 卸载）；
-2. 用方案一/方案二装到目标目录；
-3. 配置会自动从 `%AppData%\OML` 读取，不用手动搬。
+```powershell
+# 卸载旧的一键安装版本
+& "$env:LOCALAPPDATA\OML\Update.exe" --uninstall
+```
 
-> 注意：游戏存档/模组在游戏目录（`.minecraft`），与安装位置无关，不受影响。
+然后用 MSI 装到目标目录。游戏存档/模组在 `.minecraft`，与安装位置无关。

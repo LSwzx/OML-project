@@ -125,18 +125,16 @@ OML.Desktop/
 
 ### 安装位置
 
-Velopack 的一键安装器默认装到 `%LocalAppData%\OML`（按用户，不需要管理员），
-安装界面本身**没有目录选择页**（官方向导安装器仍未实现）。
-但安装器支持 `--installto`：
+**想自己选安装目录就用 MSI（`OML-win.msi`）**：安装向导自带目录选择页，
+装到 `Program Files` 时正常走 UAC。
 
-```cmd
-OML-win-Setup.exe --installto "D:\Apps\OML"
-```
+`OML-win-Setup.exe` 是 Velopack 的一键安装器，没有目录页，默认装到
+`%LocalAppData%\OML`；它支持命令行 `--installto "D:\Apps\OML"`，但它是按用户安装，
+不请求提权，装到受保护目录会有权限问题。仓库另附图形化选目录脚本
+（`scripts/install-oml.ps1` + `scripts/安装到指定目录.cmd`）。
 
-仓库里附带了一个图形化选目录的脚本（`scripts/install-oml.ps1` +
-`scripts/安装到指定目录.cmd`），放到安装包同目录双击即可。
-CI 也会额外生成 `OML-win.msi`，可用 `msiexec /i OML-win.msi /qn VELOPACK_INSTALLDIR="D:\Apps\OML"`
-做机器级安装。详见 [docs/INSTALL.md](docs/INSTALL.md)。
+静默安装：`msiexec /i OML-win.msi /qn VELOPACK_INSTALLDIR="D:\Apps\OML"`。
+详见 [docs/INSTALL.md](docs/INSTALL.md)。
 
 ### 自动更新实测（阶段 18）
 
