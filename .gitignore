@@ -485,5 +485,8 @@ $RECYCLE.BIN/
 publish-*/
 Releases/
 releases-*/
+Releases-*/
 installer/payload/
 installer/*.exe
+OML-win-*.exe
+OML-win-*.zip
