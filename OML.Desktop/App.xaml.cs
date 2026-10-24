@@ -40,6 +40,8 @@ public partial class App : Application
         var gameDirectoryOverride = ReadArgument(e.Args, "--game-dir");
         var initialPage = ReadArgument(e.Args, "--nav");
         var offlineAccount = ReadArgument(e.Args, "--create-offline");
+        var autoInstall = ReadArgument(e.Args, "--install");
+        var autoSearch = ReadArgument(e.Args, "--search");
 
         window.Loaded += async (_, _) =>
         {
@@ -59,6 +61,23 @@ public partial class App : Application
                 if (!string.IsNullOrWhiteSpace(offlineAccount))
                 {
                     await shell.Accounts.CreateOfflineAccountAsync(offlineAccount);
+                }
+
+                if (!string.IsNullOrWhiteSpace(autoInstall))
+                {
+                    window.NavigateTo("install");
+                    await shell.Install.InstallVersionAsync(autoInstall);
+                }
+
+                if (!string.IsNullOrWhiteSpace(autoSearch))
+                {
+                    window.NavigateTo("mods");
+                    await shell.Mods.SearchAsync(autoSearch);
+
+                    if (e.Args.Contains("--download-first"))
+                    {
+                        await shell.Mods.DownloadSelectedAsync();
+                    }
                 }
 
                 if (e.Args.Contains("--auto-launch"))

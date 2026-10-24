@@ -90,7 +90,46 @@
             <TextBlock Text="留空表示自动探测（JAVA_HOME → 注册表 → 常见目录 → PATH）。"
                        Opacity="0.6"
                        FontSize="11"
-                       Margin="0,0,0,20" />
+                       Margin="0,0,0,16" />
+
+            <!-- Java 探测结果 -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="当前 Java 探测结果" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding JavaScanStatus}" Opacity="0.55" FontSize="11" Margin="12,2,0,0" />
+                </StackPanel>
+                <ui:Button Grid.Column="1"
+                           Content="重新探测"
+                           Command="{Binding ScanJavaCommand}"
+                           Height="30"
+                           Padding="12,0" />
+            </Grid>
+
+            <ListBox ItemsSource="{Binding DetectedJavas}"
+                     MaxHeight="150"
+                     BorderThickness="0"
+                     Background="{DynamicResource ControlFillColorDefaultBrush}"
+                     Margin="0,0,0,16">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="4,3">
+                            <TextBlock FontSize="12">
+                                <Run Text="Java " /><Run Text="{Binding MajorVersion, Mode=OneWay}" />
+                                <Run Text="  ·  " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <Run Text="{Binding Source, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding Path}"
+                                       Opacity="0.55"
+                                       FontSize="11"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
             <TextBlock Text="{Binding StatusText}" Opacity="0.75" FontSize="12" Margin="0,0,0,4" />
             <TextBlock Text="{Binding ConfigPath, StringFormat=配置文件：{0}}"

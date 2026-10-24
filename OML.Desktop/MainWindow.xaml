@@ -33,6 +33,20 @@
                         <ui:SymbolIcon Symbol="Home24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="安装"
+                                       Tag="install"
+                                       TargetPageType="{x:Type pages:InstallPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="ArrowDownload24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="资源"
+                                       Tag="mods"
+                                       TargetPageType="{x:Type pages:ModsPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="PuzzlePiece24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
                 <ui:NavigationViewItem Content="账号"
                                        Tag="accounts"
                                        TargetPageType="{x:Type pages:AccountsPage}">

@@ -1,8 +1,10 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
+using OML.Core.Java;
 using OML.Desktop.Infrastructure;
 
 namespace OML.Desktop.ViewModels;
@@ -49,6 +51,62 @@ public partial class SettingsViewModel : ObservableObject
     private string statusText = string.Empty;
 
     public string ConfigPath => _context.ConfigPath;
+
+    /// <summary>当前机器上探测到的 Java。</summary>
+    public ObservableCollection<JavaInstallation> DetectedJavas { get; } = new();
+
+    [ObservableProperty]
+    private string javaScanStatus = "尚未探测";
+
+    [ObservableProperty]
+    private bool isScanningJava;
+
+    private bool _javaScanned;
+
+    /// <summary>探测本机 Java（进入页面自动执行一次，也可手动刷新）。</summary>
+    [RelayCommand]
+    private async Task ScanJavaAsync()
+    {
+        if (IsScanningJava)
+        {
+            return;
+        }
+
+        IsScanningJava = true;
+        JavaScanStatus = "正在探测本机 Java…";
+        try
+        {
+            var installations = await new JavaScanner().ScanAsync();
+
+            DetectedJavas.Clear();
+            foreach (var installation in installations)
+            {
+                DetectedJavas.Add(installation);
+            }
+
+            _javaScanned = true;
+            JavaScanStatus = installations.Count == 0
+                ? "未发现 Java，启动时会提示安装"
+                : $"发现 {installations.Count} 个 Java";
+        }
+        catch (Exception ex)
+        {
+            JavaScanStatus = $"探测失败：{ex.Message}";
+        }
+        finally
+        {
+            IsScanningJava = false;
+        }
+    }
+
+    /// <summary>页面首次加载时调用，避免每次切页都重启探测进程。</summary>
+    public void EnsureJavaScanned()
+    {
+        if (!_javaScanned && !IsScanningJava)
+        {
+            _ = ScanJavaAsync();
+        }
+    }
 
     /// <summary>从共享配置同步到界面（初始化时调用）。</summary>
     public void LoadFromConfig()

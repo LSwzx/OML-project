@@ -4,11 +4,15 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 12 — 多视图导航、设置页与账号页**。
+当前阶段：**阶段 13 — 安装页、资源页与核心闭环**。
 
-| 主页 | 账号 | 设置 |
+| 主页 | 安装 | 资源 |
 |:--:|:--:|:--:|
-| ![主页](docs/screenshot.png) | ![账号](docs/accounts.png) | ![设置](docs/settings.png) |
+| ![主页](docs/screenshot.png) | ![安装](docs/install.png) | ![资源](docs/mods.png) |
+
+| 账号 | 设置 |
+|:--:|:--:|
+| ![账号](docs/accounts.png) | ![设置](docs/settings.png) |
 
 ## 解决方案结构
 
@@ -36,15 +40,18 @@ OML.Desktop/
 ├─ App.xaml / App.xaml.cs        # 深色主题 + 品牌强调色 + 显式初始化
 ├─ MainWindow.xaml(.cs)          # FluentWindow + NavigationView 外壳
 ├─ ViewModels/
-│  ├─ ShellViewModel.cs          # 三页持有 + 导航
-│  ├─ HomeViewModel.cs           # 版本列表 / 启动 / 日志
+│  ├─ ShellViewModel.cs          # 页面持有 + 导航 + 安装后刷新主页
+│  ├─ HomeViewModel.cs           # 版本列表 / 启动 / 日志 / 刷新
+│  ├─ InstallViewModel.cs        # 在线清单 / 类型筛选 / 一键安装
+│  ├─ ModsViewModel.cs           # Modrinth 搜索 / 详情 / 下载到 mods
 │  ├─ AccountsViewModel.cs       # 当前账号 + 离线 / LittleSkin 登录
-│  └─ SettingsViewModel.cs       # 目录 / 内存 / 资源补全 / Java
-├─ Views/Pages/                  # HomePage / AccountsPage / SettingsPage
+│  └─ SettingsViewModel.cs       # 目录 / 内存 / 资源补全 / Java / 探测
+├─ Views/Pages/                  # Home / Install / Mods / Accounts / Settings
 └─ Infrastructure/
    ├─ DispatcherHelper.cs
    ├─ LauncherContext.cs         # 页面间共享配置 + 保存
-   └─ NavigationPageProvider.cs  # NavigationView 的页面工厂
+   ├─ NavigationPageProvider.cs  # NavigationView 的页面工厂
+   └─ ImageCache.cs              # 网络图标：内存 + 磁盘缓存
 ```
 
 - 技术栈：WPF（net8.0-windows）+ CommunityToolkit.Mvvm 8.4.2 + WPF-UI 4.3.0（Fluent 深色）。
@@ -57,6 +64,14 @@ OML.Desktop/
   避免高频日志逐行触发 PropertyChanged 卡死 TextBox；超过 20 万字符自动截断旧内容。
 - 配置目录：`%LOCALAPPDATA%\OML\launcher_config.json`；游戏目录默认 `%APPDATA%\.minecraft`，
   可用 `--game-dir <path>` 覆盖。
+- 安装页：在线清单 920 个版本，按正式版/快照筛选（筛选器用 **索引** 绑定，
+  `SelectedItem` 字符串绑定会在 `ItemsSource` 延迟赋值时被重置）。
+  安装走 `VersionInstaller`，进度条绑定 `IProgress<LaunchProgress>`，完成后自动刷新主页列表。
+- 资源页：Modrinth 搜索（图标经 `ImageCache` 做内存 + 磁盘缓存、按显示尺寸解码），
+  详情自动查询当前 MC 版本 + 加载器（从本地版本的加载器推断，缺省 fabric），
+  下载直接落 `mods/`。
+- 设置页：显示 `JavaScanner` 探测结果（路径 / 版本 / 来源），可手动重新探测。
+- 主页：版本列表旁有"刷新"按钮。
 
 ```powershell
 dotnet run --project OML.Desktop
@@ -65,6 +80,9 @@ dotnet run --project OML.Desktop -- --game-dir "D:\mc\.minecraft"
 dotnet run --project OML.Desktop -- --smoke
 dotnet run --project OML.Desktop -- --auto-launch
 dotnet run --project OML.Desktop -- --nav accounts
+# 自动化验证：安装指定版本 / 搜索并下载第一个结果
+dotnet run --project OML.Desktop -- --install 1.8.9
+dotnet run --project OML.Desktop -- --search JEI --download-first
 ```
 
 ## OML.Abstractions 结构

@@ -59,8 +59,7 @@ public partial class HomeViewModel : ObservableObject
     partial void OnSelectedVersionChanged(LocalVersionInfo? value) => LaunchCommand.NotifyCanExecuteChanged();
 
     /// <summary>扫描本地版本（由 Shell 在初始化后调用）。</summary>
-    public void ReloadVersions(string? preferredId = null)
-    {
+    public void ReloadVersions(string? preferredId = null)    {
         try
         {
             var game = _context.CreateGameDirectory();
@@ -86,6 +85,9 @@ public partial class HomeViewModel : ObservableObject
             AppendLog($"[错误] {ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void RefreshVersions() => ReloadVersions();
 
     [CommunityToolkit.Mvvm.Input.RelayCommand(CanExecute = nameof(CanLaunch))]
     private async Task LaunchAsync()

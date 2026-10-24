@@ -15,11 +15,17 @@
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
                 Padding="10">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top"
-                           Text="本地版本"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           Margin="4,2,4,8" />
+                <Grid DockPanel.Dock="Top" Margin="4,2,4,8">
+                    <TextBlock Text="本地版本"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                    <ui:Button Content="刷新"
+                               Command="{Binding RefreshVersionsCommand}"
+                               HorizontalAlignment="Right"
+                               Height="28"
+                               Padding="12,0" />
+                </Grid>
 
                 <ListBox ItemsSource="{Binding Versions}"
                          SelectedItem="{Binding SelectedVersion}"
