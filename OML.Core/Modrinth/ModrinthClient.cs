@@ -113,13 +113,15 @@ public sealed class ModrinthClient : IDisposable
 
     /// <summary>
     /// 取指定 MC 版本 + 加载器的最新可用版本。
-    /// <paramref name="preferRelease"/> 为 true 时优先正式版，没有则退回最新 beta/alpha。
+    /// <paramref name="preferRelease"/> 默认 false：Modrinth 的版本列表按发布时间倒序，
+    /// 首个元素就是最新版。若优先 formal release，像 JEI 这种主要以 beta 发布的模组
+    /// 会一路退回到很老的正式版（实测退到 15.56，连依赖声明都没有）。
     /// </summary>
     public async Task<ModrinthVersion?> GetLatestVersionAsync(
         string idOrSlug,
         string gameVersion,
         string loader,
-        bool preferRelease = true,
+        bool preferRelease = false,
         CancellationToken cancellationToken = default)
     {
         var versions = await GetVersionsAsync(idOrSlug, gameVersion, loader, cancellationToken).ConfigureAwait(false);

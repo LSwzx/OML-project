@@ -90,6 +90,8 @@ public partial class App : Application
 
                     if (e.Args.Contains("--download-first"))
                     {
+                        // 自动化场景没有交互，直接按"一并下载依赖"处理。
+                        shell.Mods.AutoConfirmDependencies = e.Args.Contains("--download-with-deps");
                         await shell.Mods.DownloadSelectedAsync();
                     }
                 }

@@ -189,6 +189,8 @@ public partial class ModsViewModel : ObservableObject
             return;
         }
 
+        LaunchVersion = LatestVersion;
+
         var file = ModrinthClient.GetPrimaryFile(LatestVersion);
         if (file is null)
         {
@@ -200,42 +202,85 @@ public partial class ModsViewModel : ObservableObject
         ProgressValue = 0;
         try
         {
+            // 解析 required 依赖，并在下载前询问用户。
+            var dependencies = await ResolveRequiredDependenciesAsync(LatestVersion, CancellationToken.None);
+            var includeDependencies = true;
+
+            if (dependencies.Count > 0 && !AutoConfirmDependencies)
+            {
+                var names = string.Join("、", dependencies.Select(d => d.Title));
+                var answer = System.Windows.MessageBox.Show(
+                    $"此模组需要前置依赖：{names}。\n是否一并下载？",
+                    "前置依赖",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
+
+                includeDependencies = answer == System.Windows.MessageBoxResult.Yes;
+            }
+
+            var downloads = new List<(string Label, ModrinthVersionFile File)>();
+            if (includeDependencies)
+            {
+                foreach (var (dependencyVersion, title) in dependencies)
+                {
+                    var dependencyFile = ModrinthClient.GetPrimaryFile(dependencyVersion);
+                    if (dependencyFile is not null)
+                    {
+                        downloads.Add((title, dependencyFile));
+                    }
+                }
+            }
+
+            downloads.Add((SelectedItem.Title, file));
+
             var game = _context.CreateGameDirectory();
             var modsDirectory = game.GetModsDirectory(_context.Config.SelectedVersion);
-            var savePath = Path.Combine(modsDirectory, SanitizeFileName(file.Filename));
+            var taskTitle = downloads.Count > 1
+                ? $"下载 {SelectedItem.Title} + {downloads.Count - 1} 个依赖"
+                : $"下载 {file.Filename}";
 
-            // 下载进全局队列：切到其它页面也不会中断。
-            var item = BackgroundTaskManager.Instance.Enqueue($"下载 {file.Filename}", async (progress, ct) =>
+            var item = BackgroundTaskManager.Instance.Enqueue(taskTitle, async (progress, ct) =>
             {
                 Directory.CreateDirectory(modsDirectory);
-                DispatcherHelper.Run(() => StatusText = $"正在下载 {file.Filename}…");
 
-                using var downloader = new PclStyleDownloader();
-                await downloader.DownloadAsync(
-                    new DownloadTask
-                    {
-                        Url = file.Url,
-                        SavePath = savePath,
-                        ExpectedSize = file.Size,
-                        Sha1 = file.Hashes.Sha1,
-                    },
-                    new Progress<double>(v =>
-                    {
-                        progress.Report(v);
-                        DispatcherHelper.Run(() => ProgressValue = v * 100);
-                    }),
-                    ct);
+                for (var i = 0; i < downloads.Count; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    var (label, current) = downloads[i];
+                    var savePath = Path.Combine(modsDirectory, SanitizeFileName(current.Filename));
+                    var fileIndex = i;
+
+                    DispatcherHelper.Run(() => StatusText = $"正在下载 {label}（{fileIndex + 1}/{downloads.Count}）…");
+
+                    using var downloader = new PclStyleDownloader();
+                    await downloader.DownloadAsync(
+                        new DownloadTask
+                        {
+                            Url = current.Url,
+                            SavePath = savePath,
+                            ExpectedSize = current.Size,
+                            Sha1 = current.Hashes.Sha1,
+                        },
+                        new Progress<double>(v =>
+                        {
+                            var overall = (fileIndex + v) / downloads.Count;
+                            progress.Report(overall);
+                            DispatcherHelper.Run(() => ProgressValue = overall * 100);
+                        }),
+                        ct);
+                }
 
                 DispatcherHelper.Run(() =>
                 {
-                    StatusText = $"已下载到 {savePath}";
+                    StatusText = $"已下载 {downloads.Count} 个文件到 {modsDirectory}";
                     ProgressValue = 100;
                 });
             });
 
             if (!await item.Completed)
             {
-                StatusText = $"下载失败：{item.Error}";
+                StatusText = item.WasCanceled ? "下载已取消" : $"下载失败：{item.Error}";
             }
         }
         catch (Exception ex)
@@ -248,10 +293,75 @@ public partial class ModsViewModel : ObservableObject
         }
     }
 
+    /// <summary>当前展示的兼容版本（下载逻辑用）。</summary>
+    private ModrinthVersion? LaunchVersion { get; set; }
+
+    /// <summary>调试/自动化：跳过"是否一并下载依赖"的确认框。</summary>
+    public bool AutoConfirmDependencies { get; set; }
+
+    private async Task<List<(ModrinthVersion Version, string Title)>> ResolveRequiredDependenciesAsync(
+        ModrinthVersion version,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<(ModrinthVersion, string)>();
+        var required = version.Dependencies
+            .Where(d => string.Equals(d.DependencyType, "required", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrWhiteSpace(d.ProjectId))
+            .ToList();
+
+        foreach (var dependency in required)
+        {
+            var projectId = dependency.ProjectId!;
+
+            string title;
+            try
+            {
+                title = (await _client.GetProjectAsync(projectId, cancellationToken)).Title;
+            }
+            catch
+            {
+                title = projectId;
+            }
+
+            var dependencyVersion = await _client.GetLatestVersionAsync(
+                projectId,
+                ResolveGameVersion(),
+                ResolveLoader(),
+                cancellationToken: cancellationToken);
+
+            if (dependencyVersion is not null)
+            {
+                results.Add((dependencyVersion, title));
+            }
+        }
+
+        return results;
+    }
+
     private string ResolveGameVersion()
     {
         var selected = _context.Config.SelectedVersion;
-        return string.IsNullOrWhiteSpace(selected) ? "1.20.1" : selected;
+        if (string.IsNullOrWhiteSpace(selected))
+        {
+            return "1.20.1";
+        }
+
+        try
+        {
+            // 加载器版本的 ID 不是 MC 版本号（fabric-loader-x-1.20.1），要回溯父版本。
+            var game = _context.CreateGameDirectory();
+            var info = new LocalVersionScanner(game).Find(selected);
+            if (info?.InheritsFrom is { Length: > 0 } parent)
+            {
+                return parent;
+            }
+        }
+        catch
+        {
+            // 扫描失败就退回原 ID。
+        }
+
+        return selected;
     }
 
     private string ResolveLoader()

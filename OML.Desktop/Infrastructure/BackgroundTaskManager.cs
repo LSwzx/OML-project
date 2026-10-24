@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace OML.Desktop.Infrastructure;
 
@@ -16,6 +16,9 @@ public sealed class BackgroundTaskItem
 
     public Func<IProgress<double>, CancellationToken, Task> Work { get; }
 
+    /// <summary>每个任务独立取消，互不影响。</summary>
+    public CancellationTokenSource Cancellation { get; } = new();
+
     public TaskCompletionSource<bool> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>0.0 - 1.0。</summary>
@@ -23,16 +26,17 @@ public sealed class BackgroundTaskItem
 
     public string? Error { get; set; }
 
-    /// <summary>任务结束（成功或失败）时完成。</summary>
+    public bool WasCanceled { get; set; }
+
+    /// <summary>任务结束（成功/失败/取消）时完成。</summary>
     public Task<bool> Completed => Completion.Task;
 }
 
 /// <summary>
 /// 全局后台任务队列（单例）。
 /// <para>
-/// 安装与下载不能绑在页面生命周期上：用户切到主页，下载必须继续。
-/// 队列串行执行（避免多个安装同时写 libraries/），进度汇总到窗口底部的状态条。
-/// 真正的并发度由下载引擎内部决定，队列只保证"同一时刻只有一个大任务在跑"。
+/// 串行执行：避免两个安装同时写 libraries/。
+/// 支持取消当前任务与重试最近一次失败的任务。
 /// </para>
 /// </summary>
 public sealed partial class BackgroundTaskManager : ObservableObject
@@ -42,7 +46,10 @@ public sealed partial class BackgroundTaskManager : ObservableObject
     private readonly object _gate = new();
     private readonly Queue<BackgroundTaskItem> _queue = new();
     private readonly SemaphoreSlim _signal = new(0);
-    private readonly CancellationTokenSource _cts = new();
+    private readonly CancellationTokenSource _shutdown = new();
+
+    private BackgroundTaskItem? _current;
+    private BackgroundTaskItem? _lastFailed;
 
     [ObservableProperty]
     private string currentTaskText = "空闲";
@@ -55,6 +62,12 @@ public sealed partial class BackgroundTaskManager : ObservableObject
 
     [ObservableProperty]
     private bool isBusy;
+
+    [ObservableProperty]
+    private bool canCancel;
+
+    [ObservableProperty]
+    private bool hasFailed;
 
     private BackgroundTaskManager()
     {
@@ -71,9 +84,33 @@ public sealed partial class BackgroundTaskManager : ObservableObject
             _queue.Enqueue(item);
         }
 
-        DispatcherHelper.Run(() => PendingCount = QueueLength());
+        DispatcherHelper.Run(() =>
+        {
+            PendingCount = QueueLength();
+            HasFailed = false;
+        });
+
         _signal.Release();
         return item;
+    }
+
+    /// <summary>取消当前正在执行的任务（已排队的其余任务不受影响）。</summary>
+    [RelayCommand]
+    private void Cancel() => _current?.Cancellation.Cancel();
+
+    /// <summary>重新排队最近一次失败的任务。</summary>
+    [RelayCommand]
+    private void Retry()
+    {
+        if (_lastFailed is null)
+        {
+            return;
+        }
+
+        var failed = _lastFailed;
+        _lastFailed = null;
+        HasFailed = false;
+        Enqueue(failed.Title, failed.Work);
     }
 
     private int QueueLength()
@@ -86,11 +123,11 @@ public sealed partial class BackgroundTaskManager : ObservableObject
 
     private async Task RunAsync()
     {
-        while (!_cts.IsCancellationRequested)
+        while (!_shutdown.IsCancellationRequested)
         {
             try
             {
-                await _signal.WaitAsync(_cts.Token).ConfigureAwait(false);
+                await _signal.WaitAsync(_shutdown.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -108,10 +145,14 @@ public sealed partial class BackgroundTaskManager : ObservableObject
                 item = _queue.Dequeue();
             }
 
+            _current = item;
+
             DispatcherHelper.Run(() =>
             {
                 PendingCount = QueueLength();
                 IsBusy = true;
+                CanCancel = true;
+                HasFailed = false;
                 CurrentTaskText = item.Title;
                 CurrentProgress = 0;
             });
@@ -124,21 +165,35 @@ public sealed partial class BackgroundTaskManager : ObservableObject
                     DispatcherHelper.Run(() => CurrentProgress = value * 100);
                 });
 
-                await item.Work(progress, _cts.Token).ConfigureAwait(false);
+                await item.Work(progress, item.Cancellation.Token).ConfigureAwait(false);
                 item.Completion.TrySetResult(true);
+                DispatcherHelper.Run(() => CurrentTaskText = "空闲");
+            }
+            catch (OperationCanceledException)
+            {
+                item.WasCanceled = true;
+                item.Completion.TrySetResult(false);
+                DispatcherHelper.Run(() => CurrentTaskText = $"已取消：{item.Title}");
             }
             catch (Exception ex)
             {
                 item.Error = ex.Message;
+                _lastFailed = item;
                 item.Completion.TrySetResult(false);
+                DispatcherHelper.Run(() =>
+                {
+                    CurrentTaskText = $"失败：{item.Title}";
+                    HasFailed = true;
+                });
             }
             finally
             {
+                _current = null;
                 DispatcherHelper.Run(() =>
                 {
                     IsBusy = false;
+                    CanCancel = false;
                     CurrentProgress = 0;
-                    CurrentTaskText = "空闲";
                     PendingCount = QueueLength();
                 });
             }

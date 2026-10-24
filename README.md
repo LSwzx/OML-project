@@ -4,15 +4,15 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 14 — 版本隔离、加载器安装与后台任务队列**。
+当前阶段：**阶段 15 — Forge 实机、依赖解析与任务取消**。
 
 | 主页 | 安装 | 资源 |
 |:--:|:--:|:--:|
 | ![主页](docs/screenshot.png) | ![安装](docs/install.png) | ![资源](docs/mods.png) |
 
-| 账号 | 设置 | Fabric 启动 |
+| Forge 启动 | 任务取消 | 设置 |
 |:--:|:--:|:--:|
-| ![账号](docs/accounts.png) | ![设置](docs/settings.png) | ![Fabric](docs/fabric-launch.png) |
+| ![Forge](docs/forge-launch.png) | ![取消](docs/task-cancel.png) | ![设置](docs/settings.png) |
 
 ## 解决方案结构
 
@@ -88,6 +88,16 @@ OML.Desktop/
   会在 `LaunchPrechecker` 处误报"缺客户端 jar"。
 - **任务队列**：安装/下载统一进 `BackgroundTaskManager`（单例、串行），
   窗口底部状态条显示当前任务与进度；切到主页或设置页任务继续跑。
+  支持**取消**当前任务（任务级 `CancellationTokenSource`）与失败后**重试**
+  （状态条变红、出现"重试"按钮）。
+- **Forge 实机**：安装器需要 `launcher_profiles.json`（缺失会报
+  "There is no Minecraft launcher profile"），安装前自动补一个最小文件；
+  安装器 stdout/stderr 实时写入 `logs/forge-install/oml-launch.log`。
+  启动时 Forge 的 `BootstrapLauncher` 通过 `-p` 加载 client jar，
+  classpath 里不能再放父版本 jar（否则 `module minecraft` 与 `_1._20._1` 冲突）。
+- **模组依赖**：下载前解析版本 JSON 的 `dependencies`，对 `required` 项弹窗询问
+  是否一并下载；确认后按依赖顺序排队下载到同一个 `mods/`。
+  JEI 在 Modrinth 上的 required 依赖实际是 **MezzConfig**（不是 Fabric API）。
 
 ```powershell
 dotnet run --project OML.Desktop

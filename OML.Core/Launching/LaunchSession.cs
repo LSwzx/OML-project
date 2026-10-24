@@ -102,6 +102,10 @@ public sealed class LaunchSession : IDisposable
 
             var javaPath = await ResolveJavaAsync(config, version, cancellationToken).ConfigureAwait(false);
 
+            // Forge 的 BootstrapLauncher 通过 -p 模块路径加载 client jar，
+            // classpath 里再放一份会被当成第二个模块（module minecraft / _1._20._1 冲突）。
+            var isForgeBootstrap = version.MainClass?.StartsWith("cpw.mods.", StringComparison.Ordinal) == true;
+
             var options = new LaunchOptions
             {
                 GameDirectory = game,
@@ -111,6 +115,7 @@ public sealed class LaunchSession : IDisposable
                 JavaPath = javaPath,
                 MaxMemoryMb = Math.Max(512, config.MaxMemoryMB),
                 ClientJarPath = clientJarPath,
+                IncludeClientJarInClasspath = !isForgeBootstrap,
             };
 
             new LaunchPrechecker().Ensure(options);

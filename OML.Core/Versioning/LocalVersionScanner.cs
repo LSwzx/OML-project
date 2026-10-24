@@ -19,7 +19,8 @@ public sealed record LocalVersionInfo(
     bool IsModded,
     string? Loader,
     bool HasClientJar,
-    string JsonPath)
+    string JsonPath,
+    string? InheritsFrom = null)
 {
     /// <summary>给 UI 显示的名字，例如 <c>1.20.1-forge (Forge)</c>。</summary>
     public string DisplayName => Loader is null ? Id : $"{Id} ({Loader})";
@@ -91,7 +92,8 @@ public sealed class LocalVersionScanner
                 isModded,
                 loader,
                 File.Exists(jarPath),
-                jsonPath));
+                jsonPath,
+                detail.InheritsFrom));
         }
 
         return results

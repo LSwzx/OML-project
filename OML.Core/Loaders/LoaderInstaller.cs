@@ -162,6 +162,10 @@ public sealed class LoaderInstaller : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(gameVersion);
         EnsureParentInstalled(gameVersion);
 
+        // Forge 安装器启动时检查 launcher_profiles.json，缺失会直接报
+        // "There is no Minecraft launcher profile ... you need to run the launcher first!"。
+        EnsureLauncherProfiles();
+
         progress?.Report(new LaunchProgress(LaunchStage.Checking, 0, "查询 Forge 版本"));
         var forge = forgeVersion ?? await GetLatestForgeVersionAsync(gameVersion, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"没有找到 {gameVersion} 的 Forge 版本。");
@@ -199,11 +203,32 @@ public sealed class LoaderInstaller : IDisposable
         using var launcher = new JvmLauncher(logDirectory);
         using var process = await launcher.LaunchAsync(arguments, cancellationToken).ConfigureAwait(false);
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 取消时安装器还在跑：必须连同子进程一起结束，否则它会继续写 libraries/。
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+                // 已经退出。
+            }
+
+            throw;
+        }
+
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException(
-                $"Forge 安装器退出码 {process.ExitCode}，日志见 {launcher.LogFilePath}");
+                $"Forge 安装器退出码 {process.ExitCode}，完整日志见 {launcher.LogFilePath}");
         }
 
         progress?.Report(new LaunchProgress(LaunchStage.Extracting, 0.9, "检查生成的版本"));
@@ -241,6 +266,31 @@ public sealed class LoaderInstaller : IDisposable
             throw new InvalidOperationException(
                 $"请先安装原版 {gameVersion}，再安装加载器。");
         }
+    }
+
+    /// <summary>
+    /// 补一个最小的 <c>launcher_profiles.json</c>。
+    /// Forge 安装器在没有这个文件时会拒绝安装（它以为你没运行过启动器）。
+    /// </summary>
+    private void EnsureLauncherProfiles()
+    {
+        var path = Path.Combine(_gameDirectory.Root, "launcher_profiles.json");
+        if (File.Exists(path))
+        {
+            return;
+        }
+
+        const string minimal = """
+        {
+          "profiles": {},
+          "selectedProfile": "",
+          "clientToken": "",
+          "authenticationDatabase": {},
+          "launcherVersion": { "name": "OML", "format": 21 }
+        }
+        """;
+
+        File.WriteAllText(path, minimal);
     }
 
     private HashSet<string> SnapshotVersionIds()

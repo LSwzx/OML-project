@@ -176,7 +176,7 @@ public partial class InstallViewModel : ObservableObject
             var ok = await item.Completed;
             if (!ok)
             {
-                StatusText = $"安装失败：{item.Error}";
+                StatusText = item.WasCanceled ? "安装已取消" : $"安装失败：{item.Error}";
             }
         }
         finally
@@ -223,7 +223,7 @@ public partial class InstallViewModel : ObservableObject
             var ok = await item.Completed;
             if (!ok)
             {
-                StatusText = $"加载器安装失败：{item.Error}";
+                StatusText = item.WasCanceled ? "加载器安装已取消" : $"加载器安装失败：{item.Error}";
             }
         }
         finally
