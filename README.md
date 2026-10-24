@@ -4,7 +4,7 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 16 — 光影、整合包、OptiFine 与安装原子性**。
+当前阶段：**阶段 17 — 实例隔离、单文件发布与自动更新**。
 
 | 资源（模组） | 光影 | 整合包 |
 |:--:|:--:|:--:|
@@ -109,6 +109,15 @@ OML.Desktop/
   启动器启动时扫描并清理带标记的半成品（只删 json/jar/natives，保留 mods/saves/config）。
 - **OptiFine**：官方无公开 API，安装页提供"导入 OptiFine"按钮，
   执行 `java -jar OptiFine_x.jar` 并在结束后对比 `versions/` 找出新版本。
+- **整合包实例命名**：整合包装到 `versions/<pack-slug>-<loader>-<mcver>/`，
+  而不是复用加载器目录——两个都用 Fabric 0.14.23 + 1.20.1 的整合包不会再互相覆盖。
+  实现方式是复制加载器版本 JSON 并改写 `id`，`inheritsFrom` 保持不变，
+  所以 `GameDirectory` / `LocalVersionScanner` 不需要特殊处理。
+- **单文件发布**：`dotnet publish OML.Desktop -c Release -o publish` 产出约 71MB 的
+  自包含 `OML.Desktop.exe`。WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`。
+- **自动更新**：Velopack 1.2，启动时静默检查，发现新版本在窗口顶部显示绿色提示条，
+  点"后台下载并重启更新"下载并重启。更新源可用 `OML_UPDATE_SOURCE`
+  指向本地目录或 HTTP 服务，方便本地联调（详见 [docs/UPDATE.md](docs/UPDATE.md)）。
 
 ```powershell
 dotnet run --project OML.Desktop

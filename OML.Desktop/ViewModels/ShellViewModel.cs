@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using OML.Core.Versioning;
 using OML.Desktop.Infrastructure;
 
@@ -39,6 +40,53 @@ public partial class ShellViewModel : ObservableObject
 
     /// <summary>全局任务队列（底部状态条绑定它）。</summary>
     public BackgroundTaskManager Tasks => BackgroundTaskManager.Instance;
+
+    /// <summary>自动更新（Velopack）。</summary>
+    public UpdateService Updates { get; } = new();
+
+    [ObservableProperty]
+    private bool updateAvailable;
+
+    [ObservableProperty]
+    private string updateText = string.Empty;
+
+    private Velopack.UpdateInfo? _pendingUpdate;
+
+    /// <summary>启动时静默检查更新；失败不影响使用。</summary>
+    public async Task CheckForUpdatesAsync()
+    {
+        var update = await Updates.CheckAsync();
+        if (update is null)
+        {
+            return;
+        }
+
+        _pendingUpdate = update;
+        UpdateText = $"发现新版本 {update.TargetFullRelease.Version}（当前 {Updates.CurrentVersion}）";
+        UpdateAvailable = true;
+    }
+
+    /// <summary>后台下载并重启到新版本。</summary>
+    [RelayCommand]
+    private async Task InstallUpdateAsync()
+    {
+        if (_pendingUpdate is null)
+        {
+            return;
+        }
+
+        UpdateText = "正在下载更新…";
+        try
+        {
+            await Updates.DownloadAndRestartAsync(
+                _pendingUpdate,
+                percent => DispatcherHelper.Run(() => UpdateText = $"正在下载更新 {percent}%"));
+        }
+        catch (Exception ex)
+        {
+            UpdateText = $"更新失败：{ex.Message}";
+        }
+    }
 
     /// <summary>当前导航标签（home / install / mods / accounts / settings）。</summary>
     [ObservableProperty]

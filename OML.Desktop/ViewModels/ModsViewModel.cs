@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -236,7 +237,8 @@ public partial class ModsViewModel : ObservableObject
 
         if (SelectedCategoryIndex == 2)
         {
-            await InstallModpackAsync(SelectedItem.Title, LatestVersion);
+            var slug = SelectedItem.Hit.Slug is { Length: > 0 } hitSlug ? hitSlug : SelectedItem.Hit.ProjectId;
+            await InstallModpackAsync(SelectedItem.Title, slug, LatestVersion);
             return;
         }
 
@@ -387,7 +389,7 @@ public partial class ModsViewModel : ObservableObject
 
             var project = await _client.GetProjectAsync(slug);
             IsBusy = false;
-            await InstallModpackAsync(project.Title, version);
+            await InstallModpackAsync(project.Title, slug, version);
         }
         catch (Exception ex)
         {
@@ -399,7 +401,7 @@ public partial class ModsViewModel : ObservableObject
         }
     }
 
-    private async Task InstallModpackAsync(string displayName, ModrinthVersion version)
+    private async Task InstallModpackAsync(string displayName, string slug, ModrinthVersion version)
     {
         var file = ModrinthClient.GetPrimaryFile(version);
         if (file is null)
@@ -444,11 +446,11 @@ public partial class ModsViewModel : ObservableObject
                     }
 
                     var index = await ModpackIndex.LoadAsync(indexPath, ct);
-                    var loaderId = await EnsureBaseVersionAsync(index, game, progress, ct);
+                    var instanceId = await EnsureInstanceAsync(index, game, slug, progress, ct);
 
-                    // overrides 覆盖到实例目录（始终使用版本目录，与全局隔离开关无关）。
+                    // overrides 覆盖到实例目录（实例目录 = versions/<slug>-<loader>-<mc>/）。
                     DispatcherHelper.Run(() => StatusText = "写入 overrides…");
-                    var instanceRoot = Path.Combine(game.VersionsDirectory, loaderId);
+                    var instanceRoot = Path.Combine(game.VersionsDirectory, instanceId);
                     Directory.CreateDirectory(instanceRoot);
 
                     foreach (var overridesName in new[] { "overrides", "client-overrides" })
@@ -495,17 +497,17 @@ public partial class ModsViewModel : ObservableObject
                     await DispatcherHelper.RunAsync(() =>
                     {
                         _context.Config.VersionIsolation = true;
-                        _context.Config.SelectedVersion = loaderId;
+                        _context.Config.SelectedVersion = instanceId;
                     });
                     await _context.SaveAsync();
 
                     DispatcherHelper.Run(() =>
                     {
-                        StatusText = $"整合包安装完成：{index.Name}（{loaderId}）";
+                        StatusText = $"整合包安装完成：{index.Name}（{instanceId}）";
                         ProgressValue = 100;
                     });
 
-                    ContentInstalled?.Invoke(loaderId);
+                    ContentInstalled?.Invoke(instanceId);
                 }
                 finally
                 {
@@ -524,47 +526,91 @@ public partial class ModsViewModel : ObservableObject
         }
     }
 
-    private async Task<string> EnsureBaseVersionAsync(
+    /// <summary>
+    /// 为整合包准备一个独立实例：<c>versions/&lt;slug&gt;-&lt;loader&gt;-&lt;mcver&gt;/</c>。
+    /// <para>
+    /// 直接复用加载器版本目录（fabric-loader-x-y）会让两个使用同一加载器的整合包互相覆盖，
+    /// 所以这里把加载器 JSON 复制一份并改写 <c>id</c>，得到属于这个整合包的版本 ID。
+    /// <c>inheritsFrom</c> 保持不变，扫描器/启动链路无需改动。
+    /// </para>
+    /// </summary>
+    private async Task<string> EnsureInstanceAsync(
         ModpackIndex index,
         GameDirectory game,
+        string slug,
         IProgress<double> progress,
         CancellationToken ct)
     {
         var minecraft = index.MinecraftVersion;
-        var moddedId = index.Loader == "fabric-loader"
-            ? $"fabric-loader-{index.LoaderVersion}-{minecraft}"
-            : $"{minecraft}-forge-{index.LoaderVersion}";
+        var loaderTag = index.Loader == "forge" ? "forge" : "fabric";
+        var instanceId = $"{Slugify(slug)}-{loaderTag}-{minecraft}";
+        var instanceJsonPath = game.GetVersionJsonPath(instanceId);
 
-        if (!Directory.Exists(game.GetVersionDirectory(moddedId)))
+        if (File.Exists(instanceJsonPath))
+        {
+            return instanceId;
+        }
+
+        if (!File.Exists(game.GetVersionJsonPath(minecraft)))
         {
             DispatcherHelper.Run(() => StatusText = $"安装原版 {minecraft}…");
+            using var installer = new VersionInstaller(game);
+            await installer.InstallVersionAsync(
+                minecraft,
+                new InstallOptions { InstallAssets = _context.Config.CompleteAssets, EnsureJava = false, MaxConcurrency = 8 },
+                new Progress<LaunchProgress>(p => progress.Report(0.2 + p.Percent / 300)),
+                ct);
+        }
 
-            if (!File.Exists(game.GetVersionJsonPath(minecraft)))
+        DispatcherHelper.Run(() => StatusText = $"安装加载器 {index.Loader} {index.LoaderVersion}…");
+        progress.Report(0.55);
+
+        string loaderVersionId;
+        using (var loader = new LoaderInstaller(game))
+        {
+            var result = index.Loader == "fabric-loader"
+                ? await loader.InstallFabricAsync(minecraft, index.LoaderVersion, cancellationToken: ct)
+                : await loader.InstallForgeAsync(minecraft, index.LoaderVersion, cancellationToken: ct);
+            loaderVersionId = result.VersionId;
+        }
+
+        var loaderJsonPath = game.GetVersionJsonPath(loaderVersionId);
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(loaderJsonPath, ct))
+                   ?? throw new InvalidDataException($"加载器版本 JSON 无法解析：{loaderJsonPath}");
+        node["id"] = instanceId;
+
+        Directory.CreateDirectory(game.GetVersionDirectory(instanceId));
+        await File.WriteAllTextAsync(
+            instanceJsonPath,
+            node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+            ct);
+
+        return instanceId;
+    }
+
+    private static string Slugify(string value)
+    {
+        var builder = new System.Text.StringBuilder(value.Length);
+        var lastDash = false;
+
+        foreach (var ch in value.ToLowerInvariant())
+        {
+            if (char.IsAsciiLetterOrDigit(ch))
             {
-                using var installer = new VersionInstaller(game);
-                await installer.InstallVersionAsync(
-                    minecraft,
-                    new InstallOptions { InstallAssets = _context.Config.CompleteAssets, EnsureJava = false, MaxConcurrency = 8 },
-                    new Progress<LaunchProgress>(p => progress.Report(0.2 + p.Percent / 300)),
-                    ct);
+                builder.Append(ch);
+                lastDash = false;
             }
-
-            DispatcherHelper.Run(() => StatusText = $"安装加载器 {index.Loader} {index.LoaderVersion}…");
-            progress.Report(0.55);
-            using var loader = new LoaderInstaller(game);
-
-            if (index.Loader == "fabric-loader")
+            else if (!lastDash && builder.Length > 0)
             {
-                await loader.InstallFabricAsync(minecraft, index.LoaderVersion, cancellationToken: ct);
-            }
-            else
-            {
-                await loader.InstallForgeAsync(minecraft, index.LoaderVersion, cancellationToken: ct);
+                builder.Append('-');
+                lastDash = true;
             }
         }
 
-        return moddedId;
+        var slug = builder.ToString().Trim('-');
+        return slug.Length == 0 ? "pack" : slug;
     }
+
 
     private static void CopyDirectory(string source, string destination)
     {

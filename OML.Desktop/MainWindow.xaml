@@ -17,6 +17,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -24,8 +25,28 @@
 
         <ui:TitleBar Grid.Row="0" Title="OML · Onion Minecraft Launcher" />
 
+        <!-- 自动更新提示条 -->
+        <Border Grid.Row="1"
+                Padding="16,7"
+                Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
+                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <TextBlock Text="{Binding UpdateText}"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Margin="0,0,220,0"
+                           TextTrimming="CharacterEllipsis" />
+                <ui:Button Content="后台下载并重启更新"
+                           Command="{Binding InstallUpdateCommand}"
+                           HorizontalAlignment="Right"
+                           Height="26"
+                           Padding="12,0"
+                           Appearance="Primary" />
+            </Grid>
+        </Border>
+
         <ui:NavigationView x:Name="RootNavigation"
-                           Grid.Row="1"
+                           Grid.Row="2"
                            PaneDisplayMode="Left"
                            OpenPaneLength="200"
                            IsBackButtonVisible="Collapsed"
@@ -70,7 +91,7 @@
         </ui:NavigationView>
 
         <!-- 全局任务状态条 -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Padding="16,5"
                 Background="{DynamicResource ControlFillColorSecondaryBrush}">
             <Grid>
@@ -129,7 +150,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="3"
+        <Border Grid.Row="4"
                 Padding="16,6"
                 Background="{DynamicResource ControlFillColorSecondaryBrush}">
             <TextBlock Text="{Binding ConfigPath, StringFormat=配置文件：{0}}"

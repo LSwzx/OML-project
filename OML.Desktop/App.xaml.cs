@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using OML.Core.Configuration;
 using OML.Desktop.Infrastructure;
 using OML.Desktop.ViewModels;
+using Velopack;
 using Wpf.Ui.Appearance;
 
 namespace OML.Desktop;
@@ -20,6 +21,12 @@ public partial class App : Application
 
     /// <summary>全局外壳 ViewModel（导航页从这里取自己的 DataContext）。</summary>
     public static ShellViewModel? Shell { get; private set; }
+
+    public App()
+    {
+        // 必须是整个进程里最早执行的逻辑之一：Velopack 要接管安装/卸载/更新参数。
+        VelopackApp.Build().Run();
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -117,6 +124,9 @@ public partial class App : Application
                 {
                     shell.Home.LaunchCommand.Execute(null);
                 }
+
+                // 静默检查更新：不阻塞启动，失败也不提示。
+                _ = shell.CheckForUpdatesAsync();
             }
             catch (Exception ex)
             {
