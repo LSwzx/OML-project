@@ -53,7 +53,8 @@ jobs:
             -e OML.Desktop.exe `
             --packTitle "OML" `
             --packAuthors "LSwzx" `
-            --channel win
+            --channel win `
+            --msi
 
       - name: Upload to GitHub Release
         shell: pwsh
@@ -66,3 +67,14 @@ jobs:
             --publish `
             --releaseName "OML ${{ github.ref_name }}" `
             --tag "${{ github.ref_name }}"
+
+      # 一键安装器没有目录选择页，附带一个图形化选择目录的脚本。
+      - name: Upload installer helper scripts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" `
+            "scripts/install-oml.ps1" `
+            "scripts/安装到指定目录.cmd" `
+            --clobber

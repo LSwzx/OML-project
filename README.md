@@ -67,8 +67,8 @@ OML.Desktop/
 - 设置保存带 500ms 防抖：拖动内存滑块不会每像素写一次磁盘。
 - 日志：后台线程写入缓冲区，`DispatcherTimer` 每 150ms 批量刷到 `Logs`，
   避免高频日志逐行触发 PropertyChanged 卡死 TextBox；超过 20 万字符自动截断旧内容。
-- 配置目录：`%LOCALAPPDATA%\OML\launcher_config.json`；游戏目录默认 `%APPDATA%\.minecraft`，
-  可用 `--game-dir <path>` 覆盖。
+- 配置目录：`%APPDATA%\OML\launcher_config.json`（与安装目录分离，更新/卸载不会误删）；
+  游戏目录默认 `%APPDATA%\.minecraft`，可用 `--game-dir <path>` 覆盖。
 - 安装页：在线清单 920 个版本，按正式版/快照筛选（筛选器用 **索引** 绑定，
   `SelectedItem` 字符串绑定会在 `ItemsSource` 延迟赋值时被重置）。
   安装走 `VersionInstaller`，进度条绑定 `IProgress<LaunchProgress>`，完成后自动刷新主页列表。
@@ -122,6 +122,21 @@ OML.Desktop/
 - **自动更新**：Velopack 1.2，启动时静默检查，发现新版本在窗口顶部显示绿色提示条，
   点"后台下载并重启更新"下载并重启。更新源可用 `OML_UPDATE_SOURCE`
   指向本地目录或 HTTP 服务，方便本地联调（详见 [docs/UPDATE.md](docs/UPDATE.md)）。
+
+### 安装位置
+
+Velopack 的一键安装器默认装到 `%LocalAppData%\OML`（按用户，不需要管理员），
+安装界面本身**没有目录选择页**（官方向导安装器仍未实现）。
+但安装器支持 `--installto`：
+
+```cmd
+OML-win-Setup.exe --installto "D:\Apps\OML"
+```
+
+仓库里附带了一个图形化选目录的脚本（`scripts/install-oml.ps1` +
+`scripts/安装到指定目录.cmd`），放到安装包同目录双击即可。
+CI 也会额外生成 `OML-win.msi`，可用 `msiexec /i OML-win.msi /qn VELOPACK_INSTALLDIR="D:\Apps\OML"`
+做机器级安装。详见 [docs/INSTALL.md](docs/INSTALL.md)。
 
 ### 自动更新实测（阶段 18）
 

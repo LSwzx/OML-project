@@ -35,9 +35,31 @@ public partial class App : Application
         ApplicationThemeManager.Apply(ApplicationTheme.Dark);
         ApplicationAccentColorManager.Apply(BrandAccent, ApplicationTheme.Dark);
 
+        // 配置放在 Roaming，和安装目录彻底分开：
+        // Velopack 默认装在 %LOCALAPPDATA%\OML，卸载时会删掉整个目录，
+        // 配置若也在里面就会跟着一起没。
         var launcherRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "OML");
+
+        var legacyConfig = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "OML",
+            "launcher_config.json");
+
+        var configPath = Path.Combine(launcherRoot, "launcher_config.json");
+        if (!File.Exists(configPath) && File.Exists(legacyConfig))
+        {
+            try
+            {
+                Directory.CreateDirectory(launcherRoot);
+                File.Copy(legacyConfig, configPath);
+            }
+            catch (IOException)
+            {
+                // 迁移失败就按新路径重新开始，不阻塞启动。
+            }
+        }
 
         var context = new LauncherContext(new ConfigManager(launcherRoot));
         var shell = new ShellViewModel(context);
