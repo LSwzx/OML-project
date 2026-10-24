@@ -60,7 +60,7 @@ public partial class InstallViewModel : ObservableObject
     private string searchText = string.Empty;
 
     [ObservableProperty]
-    private bool installAssetsOption;
+    private bool installAssetsOption = true;
 
     [ObservableProperty]
     private bool installFabricOption;
