@@ -8,6 +8,7 @@
                  MinWidth="960" MinHeight="640"
                  WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True"
+                 Icon="pack://application:,,,/Assets/oml.ico"
                  WindowBackdropType="Mica"
                  Foreground="#E6EAEF">
 

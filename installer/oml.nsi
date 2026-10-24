@@ -19,6 +19,10 @@ RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
 !define MUI_ABORTWARNING
+!define MUI_ICON "oml.ico"
+!define MUI_UNICON "oml.ico"
+Icon "oml.ico"
+UninstallIcon "oml.ico"
 !define MUI_WELCOMEPAGE_TITLE "安装 OML"
 !define MUI_WELCOMEPAGE_TEXT "OML 会安装到你选择的目录。$\r$\n$\r$\n建议选择用户可写的目录（例如 D:\Apps\OML），这样自动更新才能正常写入。"
 !define MUI_DIRECTORYPAGE_TEXT_TOP "选择 OML 的安装目录。安装器会调用 Velopack 安装到该目录，并注册自动更新。"

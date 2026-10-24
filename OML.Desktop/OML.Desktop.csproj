@@ -15,6 +15,9 @@
     <!-- 皮肤兜底图：编进程序集，单文件发布后仍可读取 -->
     <Resource Include="Assets\steve_head.png" />
     <Resource Include="Assets\steve_skin.png" />
+    <!-- 启动器图标：窗口标题栏/任务栏用 -->
+    <Resource Include="Assets\oml.ico" />
+    <Resource Include="Assets\oml.png" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -24,6 +27,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <Version>1.1.1</Version>
+    <!-- exe 自身图标（资源管理器/快捷方式/任务栏） -->
+    <ApplicationIcon>Assets\oml.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!--

@@ -109,7 +109,7 @@ WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`；发布配置已�
 
 ```powershell
 # 1. Velopack：生成 Setup 与更新包
-vpk pack -u OML -v 1.1.1 -p publish -e OML.Desktop.exe -o Releases
+vpk pack -u OML -v 1.1.1 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
 
 # 2. NSIS：把 Setup 包进带目录页的向导
 Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force

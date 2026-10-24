@@ -44,7 +44,7 @@ jobs:
         run: |
           dotnet tool install -g vpk
           "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          vpk pack -u OML -v ${{ steps.version.outputs.version }} -p publish -e OML.Desktop.exe -o Releases
+          vpk pack -u OML -v ${{ steps.version.outputs.version }} -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop/Assets/oml.ico
 
       - name: Build installer with directory page
         shell: pwsh
