@@ -4,19 +4,15 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 18 — 自动更新实跑与 CI 发布**。
+当前阶段：**阶段 20 — 三栏式主界面重设计**。
 
-| 资源（模组） | 光影 | 整合包 |
+| 主页（Java） | 主页（基岩） | 版本切换 |
 |:--:|:--:|:--:|
-| ![资源](docs/mods.png) | ![光影](docs/shader.png) | ![整合包](docs/modpack.png) |
+| ![主页](docs/ui-home.png) | ![基岩](docs/ui-bedrock.png) | ![版本](docs/ui-picker.png) |
 
-| 依赖树 | 更新提示 | 更新后 |
+| 账号菜单 | 安装 | 资源 |
 |:--:|:--:|:--:|
-| ![依赖树](docs/deps-tree.png) | ![更新提示](docs/update-banner.png) | ![1.0.1](docs/updated-1.0.1.png) |
-
-| 实例 | 安装 | 设置 |
-|:--:|:--:|:--:|
-| ![实例](docs/instances.png) | ![安装](docs/install.png) | ![设置](docs/settings.png) |
+| ![账号](docs/ui-account-menu.png) | ![安装](docs/install.png) | ![资源](docs/mods.png) |
 
 ## 解决方案结构
 
