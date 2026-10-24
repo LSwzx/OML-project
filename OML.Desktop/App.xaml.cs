@@ -41,6 +41,8 @@ public partial class App : Application
         var initialPage = ReadArgument(e.Args, "--nav");
         var offlineAccount = ReadArgument(e.Args, "--create-offline");
         var autoInstall = ReadArgument(e.Args, "--install");
+        var autoFabric = ReadArgument(e.Args, "--install-fabric");
+        var autoForge = ReadArgument(e.Args, "--install-forge");
         var autoSearch = ReadArgument(e.Args, "--search");
 
         window.Loaded += async (_, _) =>
@@ -67,6 +69,18 @@ public partial class App : Application
                 {
                     window.NavigateTo("install");
                     await shell.Install.InstallVersionAsync(autoInstall);
+                }
+
+                if (!string.IsNullOrWhiteSpace(autoFabric))
+                {
+                    window.NavigateTo("install");
+                    await shell.Install.InstallLoaderForAsync(autoFabric, "Fabric");
+                }
+
+                if (!string.IsNullOrWhiteSpace(autoForge))
+                {
+                    window.NavigateTo("install");
+                    await shell.Install.InstallLoaderForAsync(autoForge, "Forge");
                 }
 
                 if (!string.IsNullOrWhiteSpace(autoSearch))

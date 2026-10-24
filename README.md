@@ -4,15 +4,15 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 13 — 安装页、资源页与核心闭环**。
+当前阶段：**阶段 14 — 版本隔离、加载器安装与后台任务队列**。
 
 | 主页 | 安装 | 资源 |
 |:--:|:--:|:--:|
 | ![主页](docs/screenshot.png) | ![安装](docs/install.png) | ![资源](docs/mods.png) |
 
-| 账号 | 设置 |
-|:--:|:--:|
-| ![账号](docs/accounts.png) | ![设置](docs/settings.png) |
+| 账号 | 设置 | Fabric 启动 |
+|:--:|:--:|:--:|
+| ![账号](docs/accounts.png) | ![设置](docs/settings.png) | ![Fabric](docs/fabric-launch.png) |
 
 ## 解决方案结构
 
@@ -51,6 +51,7 @@ OML.Desktop/
    ├─ DispatcherHelper.cs
    ├─ LauncherContext.cs         # 页面间共享配置 + 保存
    ├─ NavigationPageProvider.cs  # NavigationView 的页面工厂
+   ├─ BackgroundTaskManager.cs   # 全局任务队列（串行，切页不中断）
    └─ ImageCache.cs              # 网络图标：内存 + 磁盘缓存
 ```
 
@@ -72,6 +73,21 @@ OML.Desktop/
   下载直接落 `mods/`。
 - 设置页：显示 `JavaScanner` 探测结果（路径 / 版本 / 来源），可手动重新探测。
 - 主页：版本列表旁有"刷新"按钮。
+
+### 版本隔离 / 加载器 / 任务队列
+
+- **版本隔离**：设置页开关。开启后 `GameDirectory.GetGameRoot()` 返回 `versions/<id>/`，
+  游戏存档、`mods/`、`config/`、`logs/` 全部落在版本目录内；启动工作目录与模组下载路径
+  都走同一个 `GameRoot`，不会出现"设置开了但某处还写全局目录"的分裂。
+- **Fabric**：`meta.fabricmc.net/v2/versions/loader/{game}/{loader}/profile/json` 直接返回
+  带 `inheritsFrom` 的完整版本 JSON，落盘即可，不执行第三方 jar。
+- **Forge**：下载官方 `installer.jar`，用 `java -jar --installClient` 静默安装，
+  再对比 `versions/` 前后差异找出新生成的版本目录。
+- **继承版本没有自己的 jar**：启动时沿 `inheritsFrom` 链找到父版本的
+  `versions/<parent>/<parent>.jar` 作为客户端 jar；预检也用它，否则 Fabric/Forge 版本
+  会在 `LaunchPrechecker` 处误报"缺客户端 jar"。
+- **任务队列**：安装/下载统一进 `BackgroundTaskManager`（单例、串行），
+  窗口底部状态条显示当前任务与进度；切到主页或设置页任务继续跑。
 
 ```powershell
 dotnet run --project OML.Desktop
@@ -133,6 +149,8 @@ OML.Core/
 │  └─ ConfigManager.cs          # launcher_config.json 读写（原子写入）
 ├─ Modrinth/
 │  └─ ModrinthClient.cs         # 搜索 / 项目 / 版本 / 直链（无 API Key）
+├─ Loaders/
+│  └─ LoaderInstaller.cs        # Fabric（Meta profile）/ Forge（installer.jar）
 ├─ Launching/
 │  ├─ LaunchSession.cs          # 门面：检查→补全→解压→预检→启动→退出
 │  ├─ LaunchOptions.cs          # 启动输入与构建结果

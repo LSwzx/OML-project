@@ -202,24 +202,41 @@ public partial class ModsViewModel : ObservableObject
         {
             var game = _context.CreateGameDirectory();
             var modsDirectory = game.GetModsDirectory(_context.Config.SelectedVersion);
-            Directory.CreateDirectory(modsDirectory);
-
             var savePath = Path.Combine(modsDirectory, SanitizeFileName(file.Filename));
-            StatusText = $"正在下载 {file.Filename}…";
 
-            using var downloader = new PclStyleDownloader();
-            await downloader.DownloadAsync(
-                new DownloadTask
+            // 下载进全局队列：切到其它页面也不会中断。
+            var item = BackgroundTaskManager.Instance.Enqueue($"下载 {file.Filename}", async (progress, ct) =>
+            {
+                Directory.CreateDirectory(modsDirectory);
+                DispatcherHelper.Run(() => StatusText = $"正在下载 {file.Filename}…");
+
+                using var downloader = new PclStyleDownloader();
+                await downloader.DownloadAsync(
+                    new DownloadTask
+                    {
+                        Url = file.Url,
+                        SavePath = savePath,
+                        ExpectedSize = file.Size,
+                        Sha1 = file.Hashes.Sha1,
+                    },
+                    new Progress<double>(v =>
+                    {
+                        progress.Report(v);
+                        DispatcherHelper.Run(() => ProgressValue = v * 100);
+                    }),
+                    ct);
+
+                DispatcherHelper.Run(() =>
                 {
-                    Url = file.Url,
-                    SavePath = savePath,
-                    ExpectedSize = file.Size,
-                    Sha1 = file.Hashes.Sha1,
-                },
-                new Progress<double>(v => ProgressValue = v * 100));
+                    StatusText = $"已下载到 {savePath}";
+                    ProgressValue = 100;
+                });
+            });
 
-            StatusText = $"已下载到 {savePath}";
-            ProgressValue = 100;
+            if (!await item.Completed)
+            {
+                StatusText = $"下载失败：{item.Error}";
+            }
         }
         catch (Exception ex)
         {

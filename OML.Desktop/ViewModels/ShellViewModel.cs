@@ -21,8 +21,8 @@ public partial class ShellViewModel : ObservableObject
         Accounts = new AccountsViewModel(context);
         Settings = new SettingsViewModel(context);
 
-        // 安装成功后主页的版本列表要立刻看到新版本。
-        Install.InstallCompleted += versionId => Home.ReloadVersions(versionId);
+        // 安装成功后主页的版本列表要立刻看到新版本（任务在后台线程完成，必须切回 UI 线程）。
+        Install.InstallCompleted += versionId => DispatcherHelper.Run(() => Home.ReloadVersions(versionId));
     }
 
     public HomeViewModel Home { get; }
@@ -34,6 +34,9 @@ public partial class ShellViewModel : ObservableObject
     public AccountsViewModel Accounts { get; }
 
     public SettingsViewModel Settings { get; }
+
+    /// <summary>全局任务队列（底部状态条绑定它）。</summary>
+    public BackgroundTaskManager Tasks => BackgroundTaskManager.Instance;
 
     /// <summary>当前导航标签（home / install / mods / accounts / settings）。</summary>
     [ObservableProperty]

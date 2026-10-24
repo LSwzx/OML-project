@@ -64,6 +64,26 @@
                                  VerticalAlignment="Center" />
             </Grid>
 
+            <!-- 版本隔离 -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="启用版本隔离" FontWeight="SemiBold" />
+                    <TextBlock Text="每个版本拥有独立的 mods 和 config 文件夹"
+                               Opacity="0.6"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               MaxWidth="560"
+                               HorizontalAlignment="Left" />
+                </StackPanel>
+                <ui:ToggleSwitch Grid.Column="1"
+                                 IsChecked="{Binding VersionIsolation}"
+                                 VerticalAlignment="Center" />
+            </Grid>
+
             <!-- Java -->
             <TextBlock Text="Java 路径" FontWeight="SemiBold" Margin="0,0,0,6" />
             <Grid Margin="0,0,0,6">

@@ -45,6 +45,9 @@ public partial class SettingsViewModel : ObservableObject
     private bool completeAssets = true;
 
     [ObservableProperty]
+    private bool versionIsolation;
+
+    [ObservableProperty]
     private string javaPath = string.Empty;
 
     [ObservableProperty]
@@ -117,6 +120,7 @@ public partial class SettingsViewModel : ObservableObject
             GameDirectory = _context.Config.GameDirectory;
             MaxMemoryMB = Math.Clamp(_context.Config.MaxMemoryMB, 1024, 8192);
             CompleteAssets = _context.Config.CompleteAssets;
+            VersionIsolation = _context.Config.VersionIsolation;
             JavaPath = _context.Config.JavaPath;
         }
         finally
@@ -130,6 +134,8 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnMaxMemoryMBChanged(double value) => QueueSave();
 
     partial void OnCompleteAssetsChanged(bool value) => QueueSave();
+
+    partial void OnVersionIsolationChanged(bool value) => QueueSave();
 
     partial void OnJavaPathChanged(string value) => QueueSave();
 
@@ -152,6 +158,7 @@ public partial class SettingsViewModel : ObservableObject
             config.GameDirectory = GameDirectory?.Trim() ?? string.Empty;
             config.MaxMemoryMB = (int)Math.Round(MaxMemoryMB);
             config.CompleteAssets = CompleteAssets;
+            config.VersionIsolation = VersionIsolation;
             config.JavaPath = JavaPath?.Trim() ?? string.Empty;
 
             await _context.SaveAsync();

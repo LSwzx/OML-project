@@ -40,6 +40,9 @@ public static class OmlJsonOptions
         // 枚举一律按字符串处理，避免以后加枚举时出现"存 0/1 还是存名字"的分裂。
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true));
 
+        // Fabric 的时间戳用 "+0000"（无冒号），严格解析会整份 JSON 失败。
+        options.Converters.Add(new FlexibleDateTimeOffsetConverter());
+
         options.MakeReadOnly();
         return options;
     }

@@ -41,6 +41,12 @@ public sealed class LaunchOptions
     /// </summary>
     public bool IncludeClientJarInClasspath { get; init; } = true;
 
+    /// <summary>
+    /// 客户端 jar 的实际路径。继承版本（Fabric/Forge）自己没有 jar，
+    /// 需要指向父版本的 jar；为空时回退到 <c>versions/&lt;id&gt;/&lt;id&gt;.jar</c>。
+    /// </summary>
+    public string? ClientJarPath { get; init; }
+
     /// <summary>特性开关，供条件参数求值（如 <c>has_custom_resolution</c>）。</summary>
     public IReadOnlyDictionary<string, bool> Features { get; init; } = new Dictionary<string, bool>();
 

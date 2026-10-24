@@ -85,8 +85,11 @@ public sealed class LaunchSession : IDisposable
 
             var resolution = new LibraryResolver(game, RuleEvaluator.ForCurrentPlatform()).Resolve(version);
 
+            // 继承版本（Fabric/Forge）自己没有 jar，客户端 jar 在父版本目录里。
+            var clientJarPath = await ResolveClientJarAsync(repository, game, version, cancellationToken).ConfigureAwait(false);
+
             await EnsureLibrariesAsync(resolution, engine, concurrency, progress, cancellationToken).ConfigureAwait(false);
-            await EnsureClientJarAsync(game, version, engine, progress, cancellationToken).ConfigureAwait(false);
+            await EnsureClientJarAsync(version, clientJarPath, engine, progress, cancellationToken).ConfigureAwait(false);
             await EnsureAssetsAsync(game, version, engine, concurrency, config, progress, cancellationToken).ConfigureAwait(false);
             Report(progress, LaunchStage.Downloading, 1, "依赖与资源检查完成");
 
@@ -107,6 +110,7 @@ public sealed class LaunchSession : IDisposable
                 User = config.UserProfile,
                 JavaPath = javaPath,
                 MaxMemoryMb = Math.Max(512, config.MaxMemoryMB),
+                ClientJarPath = clientJarPath,
             };
 
             new LaunchPrechecker().Ensure(options);
@@ -137,6 +141,34 @@ public sealed class LaunchSession : IDisposable
                 (engine as IDisposable)?.Dispose();
             }
         }
+    }
+
+    /// <summary>
+    /// 沿 <c>inheritsFrom</c> 链找到实际存在的客户端 jar。
+    /// Fabric/Forge 版本目录里通常没有 jar，真正的 jar 在父版本目录。
+    /// </summary>
+    private static async Task<string> ResolveClientJarAsync(
+        VersionRepository repository,
+        GameDirectory game,
+        VersionDetail version,
+        CancellationToken cancellationToken)
+    {
+        var currentId = version.Id;
+
+        for (var depth = 0; depth < 16 && !string.IsNullOrWhiteSpace(currentId); depth++)
+        {
+            var candidate = game.GetVersionJarPath(currentId);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            var detail = await repository.GetVersionDetailAsync(currentId, false, cancellationToken).ConfigureAwait(false);
+            currentId = detail.InheritsFrom;
+        }
+
+        // 找不到就返回当前版本路径，让预检给出明确错误。
+        return game.GetVersionJarPath(version.Id);
     }
 
     // ---------------------------------------------------------------- 补全
@@ -172,14 +204,13 @@ public sealed class LaunchSession : IDisposable
     }
 
     private static async Task EnsureClientJarAsync(
-        GameDirectory game,
         VersionDetail version,
+        string jarPath,
         IDownloadEngine engine,
         IProgress<LaunchProgress>? progress,
         CancellationToken cancellationToken)
     {
         var client = version.Downloads?.Client;
-        var jarPath = game.GetVersionJarPath(version.Id);
 
         if (client?.Url is null || File.Exists(jarPath))
         {

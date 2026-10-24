@@ -45,7 +45,10 @@ public sealed class LaunchArgumentBuilder
         // 客户端 jar 必须排在 classpath 最前面：Mojang 的 mainClass 就在它里面，
         // 漏掉它 Java 会直接抛 ClassNotFoundException（而库全都在时看起来一切正常）。
         var classpathEntries = new List<string>();
-        var clientJar = game.GetVersionJarPath(versionId);
+        var clientJar = string.IsNullOrWhiteSpace(options.ClientJarPath)
+            ? game.GetVersionJarPath(versionId)
+            : options.ClientJarPath!;
+
         if (options.IncludeClientJarInClasspath && File.Exists(clientJar))
         {
             classpathEntries.Add(clientJar);

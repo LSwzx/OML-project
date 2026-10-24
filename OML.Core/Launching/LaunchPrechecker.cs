@@ -64,7 +64,10 @@ public sealed class LaunchPrechecker
         string? missingClientJar = null;
         if (RequireClientJar)
         {
-            var jarPath = options.GameDirectory.GetVersionJarPath(options.Version.Id);
+            var jarPath = string.IsNullOrWhiteSpace(options.ClientJarPath)
+                ? options.GameDirectory.GetVersionJarPath(options.Version.Id)
+                : options.ClientJarPath!;
+
             if (!File.Exists(jarPath))
             {
                 missingClientJar = jarPath;

@@ -70,13 +70,23 @@
                     Padding="16">
                 <StackPanel>
                     <TextBlock Text="{Binding DetailText}" TextWrapping="Wrap" LineHeight="22" />
-                    <ui:Button Content="安装此版本"
-                               Command="{Binding InstallCommand}"
-                               Appearance="Primary"
-                               Margin="0,14,0,0"
-                               Height="36"
-                               MinWidth="140"
-                               HorizontalAlignment="Left" />
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <ui:Button Content="安装此版本"
+                                   Command="{Binding InstallCommand}"
+                                   Appearance="Primary"
+                                   Height="36"
+                                   MinWidth="130" />
+                        <ui:Button Content="安装 Fabric"
+                                   Command="{Binding InstallFabricCommand}"
+                                   Margin="10,0,0,0"
+                                   Height="36"
+                                   MinWidth="120" />
+                        <ui:Button Content="安装 Forge"
+                                   Command="{Binding InstallForgeCommand}"
+                                   Margin="10,0,0,0"
+                                   Height="36"
+                                   MinWidth="120" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

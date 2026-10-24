@@ -15,6 +15,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0" Title="OML · Onion Minecraft Launcher" />
@@ -64,7 +65,37 @@
             </ui:NavigationView.MenuItems>
         </ui:NavigationView>
 
+        <!-- 全局任务状态条 -->
         <Border Grid.Row="2"
+                Padding="16,5"
+                Background="{DynamicResource ControlFillColorSecondaryBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding Tasks.CurrentTaskText}"
+                           FontSize="12"
+                           MinWidth="180"
+                           VerticalAlignment="Center" />
+
+                <ProgressBar Grid.Column="1"
+                             Margin="12,0"
+                             Height="4"
+                             VerticalAlignment="Center"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="{Binding Tasks.CurrentProgress}" />
+
+                <TextBlock Grid.Column="2" FontSize="11" Opacity="0.6" VerticalAlignment="Center">
+                    <Run Text="队列 " /><Run Text="{Binding Tasks.PendingCount, Mode=OneWay}" />
+                </TextBlock>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
                 Padding="16,6"
                 Background="{DynamicResource ControlFillColorSecondaryBrush}">
             <TextBlock Text="{Binding ConfigPath, StringFormat=配置文件：{0}}"

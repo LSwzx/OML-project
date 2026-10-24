@@ -3,13 +3,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OML.Abstractions.Launching;
 using OML.Abstractions.Models;
+using OML.Core.Loaders;
 using OML.Core.Versioning;
 using OML.Desktop.Infrastructure;
 
 namespace OML.Desktop.ViewModels;
 
 /// <summary>
-/// 安装页：在线版本清单 + 一键安装。
+/// 安装页：在线版本清单 + 原版 / Fabric / Forge 安装。
+/// <para>所有安装动作都进入全局任务队列，切页不中断。</para>
 /// </summary>
 public partial class InstallViewModel : ObservableObject
 {
@@ -31,11 +33,6 @@ public partial class InstallViewModel : ObservableObject
 
     public IReadOnlyList<string> Filters { get; } = new[] { "正式版", "快照", "全部" };
 
-    /// <summary>
-    /// 用索引而不是字符串绑定筛选器：
-    /// ComboBox 的 ItemsSource 是延迟赋值的，SelectedItem 字符串绑定会在
-    /// 赋值瞬间被重置为 null，导致默认筛选失效。
-    /// </summary>
     [ObservableProperty]
     private int selectedFilterIndex;
 
@@ -59,12 +56,10 @@ public partial class InstallViewModel : ObservableObject
 
     partial void OnSelectedFilterIndexChanged(int value) => ApplyFilter();
 
-    /// <summary>首次进入页面时加载清单（只加载一次）。</summary>
     [RelayCommand]
     private async Task LoadManifestAsync()
     {
-        // 注意：不能用 IsBusy 做互斥——自动安装会先占用它，
-        // 导致清单永远加载不出来（列表空白但安装照常进行）。
+        // 不能用 IsBusy 做互斥：自动安装会先占用它，导致清单永远加载不出来。
         if (_loaded || _loadingManifest)
         {
             return;
@@ -115,17 +110,24 @@ public partial class InstallViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task InstallAsync()
+    private Task InstallAsync()
     {
-        if (SelectedVersion is null || IsBusy)
-        {
-            return;
-        }
-
-        await InstallVersionAsync(SelectedVersion.Id);
+        return SelectedVersion is null ? Task.CompletedTask : InstallVersionAsync(SelectedVersion.Id);
     }
 
-    /// <summary>按版本 ID 安装（供界面按钮与调试参数共用）。</summary>
+    [RelayCommand]
+    private Task InstallFabricAsync()
+    {
+        return SelectedVersion is null ? Task.CompletedTask : InstallLoaderForAsync(SelectedVersion.Id, "Fabric");
+    }
+
+    [RelayCommand]
+    private Task InstallForgeAsync()
+    {
+        return SelectedVersion is null ? Task.CompletedTask : InstallLoaderForAsync(SelectedVersion.Id, "Forge");
+    }
+
+    /// <summary>安装原版（进入全局队列）。</summary>
     public async Task InstallVersionAsync(string versionId)
     {
         if (IsBusy)
@@ -134,38 +136,95 @@ public partial class InstallViewModel : ObservableObject
         }
 
         IsBusy = true;
-        ProgressValue = 0;
         try
         {
             var game = _context.CreateGameDirectory();
-            using var installer = new VersionInstaller(game);
-
-            StatusText = $"正在安装 {versionId}…";
-
-            var progress = new Progress<LaunchProgress>(p =>
+            var item = BackgroundTaskManager.Instance.Enqueue($"安装 {versionId}", async (progress, ct) =>
             {
-                StatusText = p.Message;
-                ProgressValue = p.Percent;
+                using var installer = new VersionInstaller(game);
+
+                var report = new Progress<LaunchProgress>(p =>
+                {
+                    DispatcherHelper.Run(() =>
+                    {
+                        StatusText = p.Message;
+                        ProgressValue = p.Percent;
+                    });
+                    progress.Report(p.Percent / 100.0);
+                });
+
+                var result = await installer.InstallVersionAsync(
+                    versionId,
+                    new InstallOptions
+                    {
+                        InstallAssets = _context.Config.CompleteAssets,
+                        EnsureJava = false,
+                        MaxConcurrency = 8,
+                    },
+                    report,
+                    ct);
+
+                DispatcherHelper.Run(() =>
+                {
+                    StatusText = $"安装完成：{result.VersionId}（库 {result.LibraryFiles} 个，资源 {result.AssetsDownloaded}/{result.AssetsTotal}）";
+                    ProgressValue = 100;
+                });
+
+                InstallCompleted?.Invoke(result.VersionId);
             });
 
-            var result = await installer.InstallVersionAsync(
-                versionId,
-                new InstallOptions
-                {
-                    InstallAssets = _context.Config.CompleteAssets,
-                    EnsureJava = false,
-                    MaxConcurrency = 8,
-                },
-                progress);
-
-            StatusText = $"安装完成：{result.VersionId}（库 {result.LibraryFiles} 个，资源 {result.AssetsDownloaded}/{result.AssetsTotal}）";
-            ProgressValue = 100;
-
-            InstallCompleted?.Invoke(result.VersionId);
+            var ok = await item.Completed;
+            if (!ok)
+            {
+                StatusText = $"安装失败：{item.Error}";
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            StatusText = $"安装失败：{ex.Message}";
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>安装加载器（Fabric / Forge），进入全局队列。</summary>
+    public async Task InstallLoaderForAsync(string gameVersion, string loader)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var game = _context.CreateGameDirectory();
+            var item = BackgroundTaskManager.Instance.Enqueue($"安装 {loader}（{gameVersion}）", async (progress, ct) =>
+            {
+                using var installer = new LoaderInstaller(game);
+
+                var report = new Progress<LaunchProgress>(p =>
+                {
+                    DispatcherHelper.Run(() => StatusText = p.Message);
+                    progress.Report(p.Percent / 100.0);
+                });
+
+                var result = string.Equals(loader, "Fabric", StringComparison.OrdinalIgnoreCase)
+                    ? await installer.InstallFabricAsync(gameVersion, progress: report, cancellationToken: ct)
+                    : await installer.InstallForgeAsync(gameVersion, progress: report, cancellationToken: ct);
+
+                DispatcherHelper.Run(() =>
+                {
+                    StatusText = $"{result.Loader} 安装完成：{result.VersionId}";
+                    ProgressValue = 100;
+                });
+
+                InstallCompleted?.Invoke(result.VersionId);
+            });
+
+            var ok = await item.Completed;
+            if (!ok)
+            {
+                StatusText = $"加载器安装失败：{item.Error}";
+            }
         }
         finally
         {
