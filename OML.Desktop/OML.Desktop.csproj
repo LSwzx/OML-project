@@ -14,6 +14,7 @@
   <ItemGroup>
     <!-- 皮肤兜底图：编进程序集，单文件发布后仍可读取 -->
     <Resource Include="Assets\steve_head.png" />
+    <Resource Include="Assets\steve_skin.png" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -75,6 +75,10 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private System.Windows.Media.ImageSource? skinHead;
 
+    /// <summary>3D 预览用的皮肤 PNG 本地路径；为空时控件用内置 Steve。</summary>
+    [ObservableProperty]
+    private string? skinImagePath;
+
     public bool IsJavaSelected => CurrentPlatform == CurrentPlatform.Java;
 
     public bool IsBedrockSelected => CurrentPlatform == CurrentPlatform.Bedrock;
@@ -147,6 +151,7 @@ public partial class HomeViewModel : ObservableObject
         if (profile is null || string.IsNullOrWhiteSpace(profile.SkinUrl))
         {
             SkinHead = SkinImageLoader.SteveHead;
+            SkinImagePath = null;
             return;
         }
 
@@ -156,11 +161,19 @@ public partial class HomeViewModel : ObservableObject
             using var downloader = new OML.Core.Skins.SkinDownloader(cacheRoot);
             var path = await downloader.GetSkinPathAsync(profile.SkinUrl, profile.Uuid);
 
-            DispatcherHelper.Run(() => SkinHead = SkinImageLoader.LoadHead(path));
+            DispatcherHelper.Run(() =>
+            {
+                SkinImagePath = path;
+                SkinHead = SkinImageLoader.LoadHead(path);
+            });
         }
         catch
         {
-            DispatcherHelper.Run(() => SkinHead = SkinImageLoader.SteveHead);
+            DispatcherHelper.Run(() =>
+            {
+                SkinImagePath = null;
+                SkinHead = SkinImageLoader.SteveHead;
+            });
         }
     }
 

@@ -115,6 +115,9 @@ OML.Desktop/
   所以 `GameDirectory` / `LocalVersionScanner` 不需要特殊处理。
 - **单文件发布**：`dotnet publish OML.Desktop -c Release -o publish` 产出约 71MB 的
   自包含 `OML.Desktop.exe`。WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`。
+- **3D 皮肤预览**：`Viewport3D` 用 6 个长方体（头 8³、身 8×12×4、四肢 4×12×4）
+  拼出 Steve 模型，每个面按皮肤 UV 区域取贴图，支持 64×64 与 64×32 旧格式；
+  鼠标拖动可旋转。离线账号使用仓库内置的 `images/offline/steve.png`（编进程序集资源）。
 - **自动更新**：Velopack 1.2，启动时静默检查，发现新版本在窗口顶部显示绿色提示条，
   点"后台下载并重启更新"下载并重启。更新源可用 `OML_UPDATE_SOURCE`
   指向本地目录或 HTTP 服务，方便本地联调（详见 [docs/UPDATE.md](docs/UPDATE.md)）。
