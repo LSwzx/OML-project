@@ -60,6 +60,7 @@ Stage7Checks.RunLocal(Check);
 Stage8Checks.RunLocal(Check);
 Stage9Checks.RunLocal(Check);
 Stage10Checks.RunLocal(Check);
+Stage11Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
 {

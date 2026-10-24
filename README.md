@@ -4,7 +4,9 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 10 — LittleSkin / Yggdrasil 外置登录**（控制台验证，不含 UI）。
+当前阶段：**阶段 11 — WPF 界面骨架与最小启动闭环**。
+
+![OML Desktop](docs/screenshot.png)
 
 ## 解决方案结构
 
@@ -12,16 +14,43 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 OML.sln
 ├─ OML.Abstractions/   # 接口与模型（不依赖任何项目）
 ├─ OML.Core/           # 核心逻辑，引用 Abstractions
+├─ OML.Desktop/        # WPF 界面（net8.0-windows），引用 Core + Abstractions
 └─ OML.Test/           # 控制台验证宿主，引用 Core + Abstractions
 ```
 
-依赖方向严格单向：`OML.Test → OML.Core → OML.Abstractions`。
+依赖方向严格单向：`OML.Desktop / OML.Test → OML.Core → OML.Abstractions`。
 
-| 项目 | 类型 | TFM |
-| :-- | :-- | :-- |
-| OML.Abstractions | classlib | net8.0 |
-| OML.Core | classlib | net8.0 |
-| OML.Test | console (Exe) | net8.0 |
+| 项目             | 类型          | TFM             |
+|:---------------- |:------------- |:--------------- |
+| OML.Abstractions | classlib      | net8.0          |
+| OML.Core         | classlib      | net8.0          |
+| OML.Test         | console (Exe) | net8.0          |
+| OML.Desktop      | WPF (Exe)     | net8.0-windows  |
+
+## OML.Desktop（WPF）
+
+```
+OML.Desktop/
+├─ App.xaml / App.xaml.cs        # 深色主题 + 品牌强调色 + 手工组装
+├─ MainWindow.xaml(.cs)          # FluentWindow：版本列表 / 启动 / 日志
+├─ ViewModels/MainViewModel.cs   # CommunityToolkit.Mvvm
+└─ Infrastructure/DispatcherHelper.cs
+```
+
+- 技术栈：WPF（net8.0-windows）+ CommunityToolkit.Mvvm 8.4.2 + WPF-UI 4.3.0（Fluent 深色）。
+- 强调色固定为品牌蓝 `#4C8BF5`，不跟随系统强调色（系统换成绿色会让整个界面变荧光绿）。
+- 日志：后台线程写入缓冲区，`DispatcherTimer` 每 150ms 批量刷到 `Logs`，
+  避免高频日志逐行触发 PropertyChanged 卡死 TextBox；超过 20 万字符自动截断旧内容。
+- 配置目录：`%LOCALAPPDATA%\OML\launcher_config.json`；游戏目录默认 `%APPDATA%\.minecraft`，
+  可用 `--game-dir <path>` 覆盖。
+
+```powershell
+dotnet run --project OML.Desktop
+# 指定游戏目录 / 冒烟测试 / 自动点一次启动
+dotnet run --project OML.Desktop -- --game-dir "D:\mc\.minecraft"
+dotnet run --project OML.Desktop -- --smoke
+dotnet run --project OML.Desktop -- --auto-launch
+```
 
 ## OML.Abstractions 结构
 
@@ -237,14 +266,16 @@ var exit = await info.WaitForExitAsync();               // ExitCode + CrashRepor
   `WaitForExitAsync()` 获取。只认启动时间之后的文件，避免把上次的旧报告当成本次崩溃。
 - 配置写在**启动器根目录**的 `launcher_config.json`，不进 `.minecraft`：游戏目录会被玩家
   清理或迁移，配置不该跟着丢。写入走临时文件替换，断电不会留下半截 JSON。
+- 令牌用 **DPAPI**（`DataProtectionScope.CurrentUser`）加密后落盘，格式 `dpapi:<base64>`；
+  历史明文自动兼容。换用户/换机器解不开时按"未登录"处理而不是崩溃。
 
 ### 版本缓存（离网可用）
 
-| 内容 | 落点 | 新鲜期 |
-| :-- | :-- | :-- |
-| 版本清单 | `versions/version_manifest_v2.json` | 30 分钟（过期仍可作为断网兜底） |
-| 版本详情 | `versions/<id>/<id>.json` | 永久（内容不可变） |
-| 客户端 jar | `versions/<id>/<id>.jar` | — |
+| 内容       | 落点                                | 新鲜期                          |
+|:---------- |:----------------------------------- |:------------------------------- |
+| 版本清单   | `versions/version_manifest_v2.json` | 30 分钟（过期仍可作为断网兜底） |
+| 版本详情   | `versions/<id>/<id>.json`           | 永久（内容不可变）              |
+| 客户端 jar | `versions/<id>/<id>.jar`            | —                               |
 
 任何网络异常都会回退本地缓存；无缓存才抛异常。缓存目录与游戏目录同构，不做重复存储。
 
@@ -259,13 +290,13 @@ var exit = await info.WaitForExitAsync();               // ExitCode + CrashRepor
 
 ### BMCLAPI 路径规则（全部实测）
 
-| 官方 Host | 映射方式 | 例 |
-| :-- | :-- | :-- |
-| `launchermeta.mojang.com` | 路径原样 | `/mc/game/version_manifest_v2.json` |
-| `piston-meta.mojang.com` | 路径原样 | `/v1/packages/<sha>/1.21.1.json` |
-| `piston-data.mojang.com` | 路径原样 | `/v1/objects/<sha>/client.jar` |
-| `libraries.minecraft.net` | 插入 `maven/` | `/a/b.jar` → `/maven/a/b.jar` |
-| `resources.download.minecraft.net` | 插入 `assets/` | `/b6/<hash>` → `/assets/b6/<hash>` |
+| 官方 Host                          | 映射方式       | 例                                  |
+|:---------------------------------- |:-------------- |:----------------------------------- |
+| `launchermeta.mojang.com`          | 路径原样       | `/mc/game/version_manifest_v2.json` |
+| `piston-meta.mojang.com`           | 路径原样       | `/v1/packages/<sha>/1.21.1.json`    |
+| `piston-data.mojang.com`           | 路径原样       | `/v1/objects/<sha>/client.jar`      |
+| `libraries.minecraft.net`          | 插入 `maven/`  | `/a/b.jar` → `/maven/a/b.jar`       |
+| `resources.download.minecraft.net` | 插入 `assets/` | `/b6/<hash>` → `/assets/b6/<hash>`  |
 
 > 注意：BMCLAPI **保留** `/mc/game/` 前缀，网上流传的"镜像没有该前缀"不成立。
 > 另外 BMCLAPI 的 `/maven/` 会 302 到签名 CDN，必须允许自动重定向，且该 CDN 支持 Range。

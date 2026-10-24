@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using OML.Abstractions.Auth;
 using OML.Abstractions.Configuration;
 
 namespace OML.Core.Configuration;
@@ -52,6 +53,13 @@ public sealed class ConfigManager
         {
             var json = await File.ReadAllTextAsync(ConfigPath, cancellationToken).ConfigureAwait(false);
             var config = JsonSerializer.Deserialize<LauncherConfig>(json, SerializerOptions);
+
+            if (config?.UserProfile is { } profile)
+            {
+                // 历史明文配置原样返回；DPAPI 解不开（换用户/换机器）则按未登录处理。
+                profile.AccessToken = TokenProtector.Unprotect(profile.AccessToken);
+            }
+
             return config ?? LauncherConfig.CreateDefault();
         }
         catch (OperationCanceledException)
@@ -81,9 +89,33 @@ public sealed class ConfigManager
 
         Directory.CreateDirectory(LauncherRoot);
 
-        var json = JsonSerializer.Serialize(config, SerializerOptions);
+        // 序列化副本：不修改调用方内存里的对象，也不让明文令牌落盘。
+        var json = JsonSerializer.Serialize(CreatePersistableCopy(config), SerializerOptions);
         var tempPath = ConfigPath + ".tmp";
         await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, ConfigPath, overwrite: true);
     }
+
+    /// <summary>生成一份"可落盘"的副本：令牌用 DPAPI 加密，其余字段原样。</summary>
+    private static LauncherConfig CreatePersistableCopy(LauncherConfig config) => new()
+    {
+        SelectedVersion = config.SelectedVersion,
+        JavaPath = config.JavaPath,
+        MaxMemoryMB = config.MaxMemoryMB,
+        GameDirectory = config.GameDirectory,
+        VersionIsolation = config.VersionIsolation,
+        CompleteAssets = config.CompleteAssets,
+        MaxDownloadConcurrency = config.MaxDownloadConcurrency,
+        UserProfile = config.UserProfile is null
+            ? null
+            : new UserProfile
+            {
+                Username = config.UserProfile.Username,
+                Uuid = config.UserProfile.Uuid,
+                AccessToken = TokenProtector.Protect(config.UserProfile.AccessToken),
+                SkinUrl = config.UserProfile.SkinUrl,
+                SkinModel = config.UserProfile.SkinModel,
+                Type = config.UserProfile.Type,
+            },
+    };
 }

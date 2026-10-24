@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OML.Core", "OML.Core\OML.Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OML.Test", "OML.Test\OML.Test.csproj", "{3BF849E6-EEFC-402A-A61A-01A29AFFA946}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OML.Desktop", "OML.Desktop\OML.Desktop.csproj", "{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{3BF849E6-EEFC-402A-A61A-01A29AFFA946}.Release|x64.Build.0 = Release|Any CPU
 		{3BF849E6-EEFC-402A-A61A-01A29AFFA946}.Release|x86.ActiveCfg = Release|Any CPU
 		{3BF849E6-EEFC-402A-A61A-01A29AFFA946}.Release|x86.Build.0 = Release|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Debug|x64.Build.0 = Debug|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Debug|x86.Build.0 = Debug|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Release|x64.ActiveCfg = Release|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Release|x64.Build.0 = Release|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Release|x86.ActiveCfg = Release|Any CPU
+		{2FC0A9C8-2881-45BF-83B1-3FCC41F7A6F2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
