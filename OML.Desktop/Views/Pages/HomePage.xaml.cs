@@ -19,6 +19,9 @@ public partial class HomePage : Page
     private void OnJavaCardClick(object sender, MouseButtonEventArgs e) =>
         ViewModel?.SelectJavaCommand.Execute(null);
 
+    private void OnScanSummaryClick(object sender, MouseButtonEventArgs e) =>
+        ViewModel?.ShowScanIssuesCommand.Execute(null);
+
     private void OnBedrockCardClick(object sender, MouseButtonEventArgs e) =>
         ViewModel?.SelectBedrockCommand.Execute(null);
 

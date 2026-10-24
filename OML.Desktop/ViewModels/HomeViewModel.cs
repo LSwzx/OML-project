@@ -220,13 +220,24 @@ public partial class HomeViewModel : ObservableObject
         try
         {
             var game = _context.CreateGameDirectory();
-            var found = new LocalVersionScanner(game).Scan();
+            var scan = new LocalVersionScanner(game).ScanDetailed();
 
             Versions.Clear();
-            foreach (var version in found)
+            foreach (var version in scan.Versions)
             {
                 Versions.Add(version);
             }
+
+            _scanIssues.Clear();
+            foreach (var issue in scan.Issues)
+            {
+                _scanIssues.Add($"{issue.VersionId}\n{issue.Reason}");
+            }
+
+            SkippedVersionCount = scan.Issues.Count;
+            ScanSummary = scan.Issues.Count == 0
+                ? $"共扫描到 {scan.Versions.Count} 个版本"
+                : $"共扫描到 {scan.Versions.Count} 个版本，跳过 {scan.Issues.Count} 个（点击查看详情）";
 
             SelectedVersion = Versions.FirstOrDefault(v =>
                                   string.Equals(v.Id, preferredId ?? _context.Config.SelectedVersion, StringComparison.OrdinalIgnoreCase))
@@ -243,6 +254,31 @@ public partial class HomeViewModel : ObservableObject
             StatusText = "扫描版本失败";
             AppendLog($"[错误] {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    private readonly System.Collections.Generic.List<string> _scanIssues = new();
+
+    /// <summary>扫描摘要：共 X 个、跳过 Y 个。</summary>
+    [ObservableProperty]
+    private string scanSummary = string.Empty;
+
+    [ObservableProperty]
+    private int skippedVersionCount;
+
+    /// <summary>点击扫描摘要：列出被跳过版本的具体原因。</summary>
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ShowScanIssues()
+    {
+        if (_scanIssues.Count == 0)
+        {
+            return;
+        }
+
+        System.Windows.MessageBox.Show(
+            string.Join("\n\n", _scanIssues),
+            $"扫描详情：{_scanIssues.Count} 个版本被跳过",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Warning);
     }
 
     [CommunityToolkit.Mvvm.Input.RelayCommand]

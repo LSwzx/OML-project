@@ -195,6 +195,14 @@
                 </ui:Card>
             </Border>
 
+            <TextBlock Grid.Row="3"
+                       Text="{Binding ScanSummary}"
+                       Margin="4,10,0,0"
+                       FontSize="11"
+                       Foreground="{StaticResource OMLMuted}"
+                       Cursor="Hand"
+                       VerticalAlignment="Top"
+                       MouseLeftButtonUp="OnScanSummaryClick" />
             <!-- 日志 -->
             <Expander Grid.Row="4" Margin="0,12,0,0" IsExpanded="False">
                 <Expander.Header>

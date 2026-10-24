@@ -33,11 +33,23 @@ public sealed record LocalVersionInfo(
         : Loader is null ? Id : $"{Id} ({Loader})";
 }
 
+/// <summary>扫描时被跳过的版本及原因。</summary>
+/// <param name="VersionId">目录名。</param>
+/// <param name="JsonPath">期望的 JSON 路径（可能不存在）。</param>
+/// <param name="Reason">人类可读的原因，包含异常类型与消息。</param>
+public sealed record VersionScanIssue(string VersionId, string JsonPath, string Reason);
+
+/// <summary>扫描结果：成功解析的版本 + 被跳过的版本。</summary>
+public sealed record VersionScanResult(
+    IReadOnlyList<LocalVersionInfo> Versions,
+    IReadOnlyList<VersionScanIssue> Issues);
+
 /// <summary>
 /// 本地版本扫描：遍历 <c>versions/*/&lt;id&gt;.json</c>。
 /// <para>
 /// 扫描必须容忍坏文件：用户装 Forge 失败、手改 JSON、磁盘写到一半都会留下残缺文件，
 /// 不能因为其中一个解析失败就让整个版本列表打不开。
+/// 但也不能静默跳过——每个失败都要记录原因，交给 UI 展示。
 /// </para>
 /// </summary>
 public sealed class LocalVersionScanner
@@ -50,14 +62,18 @@ public sealed class LocalVersionScanner
     }
 
     /// <summary>扫描全部本地版本，按发布时间倒序（同时间按 ID 倒序）。</summary>
-    public IReadOnlyList<LocalVersionInfo> Scan()
+    public IReadOnlyList<LocalVersionInfo> Scan() => ScanDetailed().Versions;
+
+    /// <summary>扫描并返回成功与跳过的明细。</summary>
+    public VersionScanResult ScanDetailed()
     {
         if (!Directory.Exists(_gameDirectory.VersionsDirectory))
         {
-            return Array.Empty<LocalVersionInfo>();
+            return new VersionScanResult(Array.Empty<LocalVersionInfo>(), Array.Empty<VersionScanIssue>());
         }
 
         var results = new List<LocalVersionInfo>();
+        var issues = new List<VersionScanIssue>();
 
         foreach (var directory in Directory.EnumerateDirectories(_gameDirectory.VersionsDirectory))
         {
@@ -70,6 +86,7 @@ public sealed class LocalVersionScanner
             var jsonPath = Path.Combine(directory, $"{id}.json");
             if (!File.Exists(jsonPath))
             {
+                issues.Add(new VersionScanIssue(id, jsonPath, "目录里没有与目录同名的 .json 文件"));
                 continue;
             }
 
@@ -79,13 +96,15 @@ public sealed class LocalVersionScanner
                 var json = File.ReadAllText(jsonPath);
                 detail = JsonSerializer.Deserialize<VersionDetail>(json, OmlJsonOptions.Default);
             }
-            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+            catch (Exception ex)
             {
+                issues.Add(new VersionScanIssue(id, jsonPath, $"{ex.GetType().Name}: {ex.Message}"));
                 continue;
             }
 
             if (detail is null)
             {
+                issues.Add(new VersionScanIssue(id, jsonPath, "反序列化结果为 null（文件内容可能是 null）"));
                 continue;
             }
 
@@ -113,10 +132,12 @@ public sealed class LocalVersionScanner
                 iconUrl));
         }
 
-        return results
-            .OrderByDescending(v => v.ReleaseTime ?? DateTimeOffset.MinValue)
-            .ThenByDescending(v => v.Id, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        return new VersionScanResult(
+            results
+                .OrderByDescending(v => v.ReleaseTime ?? DateTimeOffset.MinValue)
+                .ThenByDescending(v => v.Id, StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            issues);
     }
 
     /// <summary>按 ID 查找（大小写不敏感）。</summary>

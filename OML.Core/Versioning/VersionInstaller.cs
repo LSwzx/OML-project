@@ -90,14 +90,26 @@ public sealed class VersionInstaller : IDisposable
         using var repository = new VersionRepository(_gameDirectory, _http);
         var version = await repository.GetResolvedVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
 
-        // 上次没装完（取消/崩溃）：先清掉启动器管理的半成品，再重装。
-        if (InstallState.IsInstalling(_gameDirectory, version.Id))
+        // 已存在且能解析的版本 JSON = 用户已经有这个版本（可能来自 PCL2/官方启动器）。
+        // 这种情况下绝不允许"全量重装"：不清理、不覆盖，只做增量修复。
+        var hasValidLocalJson = TryParseLocalJson(version.Id, out var localJsonError);
+
+        if (!hasValidLocalJson && InstallState.IsInstalling(_gameDirectory, version.Id))
         {
-            Report(progress, LaunchStage.Preparing, 0, $"清理上次未完成的安装：{version.Id}");
+            // 上次没装完（取消/崩溃）：先清掉启动器管理的半成品，再重装。
+            Report(progress, LaunchStage.Preparing, 0, $"清理上次未完成的安装：{version.Id}{localJsonError}");
             InstallState.CleanupPartial(_gameDirectory, version.Id);
         }
 
-        InstallState.Begin(_gameDirectory, version.Id);
+        if (hasValidLocalJson)
+        {
+            Report(progress, LaunchStage.Preparing, 0, $"检测到已有版本 {version.Id}，进入增量修复模式");
+        }
+
+        if (!hasValidLocalJson)
+        {
+            InstallState.Begin(_gameDirectory, version.Id);
+        }
 
         Report(progress, LaunchStage.Checking, 0, "解析版本依赖");
         var resolution = new LibraryResolver(_gameDirectory, RuleEvaluator.ForCurrentPlatform()).Resolve(version);
@@ -164,6 +176,43 @@ public sealed class VersionInstaller : IDisposable
             {
                 (engine as IDisposable)?.Dispose();
             }
+        }
+    }
+
+    /// <summary>
+    /// 判断本地是否已有可解析的 <c>&lt;id&gt;.json</c>。
+    /// 只要解析成功，就说明这是用户已有的合规版本，安装器只能补缺、不能重装。
+    /// </summary>
+    private bool TryParseLocalJson(string versionId, out string error)
+    {
+        error = string.Empty;
+        var jsonPath = _gameDirectory.GetVersionJsonPath(versionId);
+
+        if (!File.Exists(jsonPath))
+        {
+            error = "（本地没有 JSON）";
+            return false;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(jsonPath);
+            var detail = System.Text.Json.JsonSerializer.Deserialize<VersionDetail>(
+                stream,
+                OML.Core.Serialization.OmlJsonOptions.Default);
+
+            if (detail is null)
+            {
+                error = "（本地 JSON 内容为 null）";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"（本地 JSON 损坏：{ex.GetType().Name}: {ex.Message}）";
+            return false;
         }
     }
 

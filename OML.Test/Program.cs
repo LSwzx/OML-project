@@ -52,7 +52,62 @@ if (args.Contains("--ms-login"))
     return await MicrosoftLoginProbe.RunAsync();
 }
 
+// 诊断：扫描指定 .minecraft，打印成功与跳过的版本及原因。
+if (args.Length >= 2 && args[0] == "--scan")
+{
+    var root = args[1];
+    var game = new OML.Core.Versioning.GameDirectory(root);
+    var scan = new OML.Core.Versioning.LocalVersionScanner(game).ScanDetailed();
+
+    Console.WriteLine($"扫描 {root}");
+    Console.WriteLine($"成功 {scan.Versions.Count} 个，跳过 {scan.Issues.Count} 个");
+    Console.WriteLine();
+
+    foreach (var version in scan.Versions)
+    {
+        Console.WriteLine($"  OK   {version.Id}  [{version.Type}]  loader={version.Loader ?? "-"}  jar={version.HasClientJar}  inherits={version.InheritsFrom ?? "-"}");
+    }
+
+    foreach (var issue in scan.Issues)
+    {
+        Console.WriteLine($"  SKIP {issue.VersionId}");
+        Console.WriteLine($"       {issue.Reason}");
+    }
+
+    return scan.Issues.Count == 0 ? 0 : 0;
+}
+
 RunAbstractionChecks();
+
+// PCL2 之类的第三方启动器会往版本 JSON 里塞注释、尾逗号、扩展字段，
+// 大小写也不完全统一。OmlJsonOptions 必须全部容忍，否则版本会被误判为"未安装"。
+{
+    const string pclStyleJson = """
+    {
+      // PCL 自己加的标记
+      "ID": "pcl-ish",
+      "Type": "release",
+      "ReleaseTime": "2024-08-08T12:24:45+0000",
+      "pclExtra": { "nested": [1, 2, 3] },
+      "libraries": [],
+    }
+    """;
+
+    try
+    {
+        var parsed = System.Text.Json.JsonSerializer.Deserialize<OML.Abstractions.Models.VersionDetail>(
+            pclStyleJson,
+            OML.Core.Serialization.OmlJsonOptions.Default);
+
+        Check("JSON 容错：注释 / 尾逗号 / 大小写 / 未知字段 / +0000 时间",
+            parsed is not null && parsed.Id == "pcl-ish" && parsed.Type == "release");
+    }
+    catch (Exception ex)
+    {
+        Check($"JSON 容错：注释 / 尾逗号 / 大小写 / 未知字段 / +0000 时间（异常 {ex.GetType().Name}）", false);
+    }
+}
+
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
 Stage6Checks.RunLocal(Check);
