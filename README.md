@@ -4,9 +4,11 @@ Windows 平台的 Minecraft 启动器。架构对标 HMCL（分层解耦），�
 
 [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前阶段：**阶段 11 — WPF 界面骨架与最小启动闭环**。
+当前阶段：**阶段 12 — 多视图导航、设置页与账号页**。
 
-![OML Desktop](docs/screenshot.png)
+| 主页 | 账号 | 设置 |
+|:--:|:--:|:--:|
+| ![主页](docs/screenshot.png) | ![账号](docs/accounts.png) | ![设置](docs/settings.png) |
 
 ## 解决方案结构
 
@@ -31,14 +33,26 @@ OML.sln
 
 ```
 OML.Desktop/
-├─ App.xaml / App.xaml.cs        # 深色主题 + 品牌强调色 + 手工组装
-├─ MainWindow.xaml(.cs)          # FluentWindow：版本列表 / 启动 / 日志
-├─ ViewModels/MainViewModel.cs   # CommunityToolkit.Mvvm
-└─ Infrastructure/DispatcherHelper.cs
+├─ App.xaml / App.xaml.cs        # 深色主题 + 品牌强调色 + 显式初始化
+├─ MainWindow.xaml(.cs)          # FluentWindow + NavigationView 外壳
+├─ ViewModels/
+│  ├─ ShellViewModel.cs          # 三页持有 + 导航
+│  ├─ HomeViewModel.cs           # 版本列表 / 启动 / 日志
+│  ├─ AccountsViewModel.cs       # 当前账号 + 离线 / LittleSkin 登录
+│  └─ SettingsViewModel.cs       # 目录 / 内存 / 资源补全 / Java
+├─ Views/Pages/                  # HomePage / AccountsPage / SettingsPage
+└─ Infrastructure/
+   ├─ DispatcherHelper.cs
+   ├─ LauncherContext.cs         # 页面间共享配置 + 保存
+   └─ NavigationPageProvider.cs  # NavigationView 的页面工厂
 ```
 
 - 技术栈：WPF（net8.0-windows）+ CommunityToolkit.Mvvm 8.4.2 + WPF-UI 4.3.0（Fluent 深色）。
+- 导航：`NavigationView` 原生 Page 模式。**必须注入 `INavigationViewPageProvider`**，
+  否则 `Navigate(Type)` 只更新选中态、内容区保持空白。
 - 强调色固定为品牌蓝 `#4C8BF5`，不跟随系统强调色（系统换成绿色会让整个界面变荧光绿）。
+- 配置只有一份（`LauncherContext`）：设置页改了内存、账号页登录了新账号，主页启动立刻生效。
+- 设置保存带 500ms 防抖：拖动内存滑块不会每像素写一次磁盘。
 - 日志：后台线程写入缓冲区，`DispatcherTimer` 每 150ms 批量刷到 `Logs`，
   避免高频日志逐行触发 PropertyChanged 卡死 TextBox；超过 20 万字符自动截断旧内容。
 - 配置目录：`%LOCALAPPDATA%\OML\launcher_config.json`；游戏目录默认 `%APPDATA%\.minecraft`，
@@ -46,10 +60,11 @@ OML.Desktop/
 
 ```powershell
 dotnet run --project OML.Desktop
-# 指定游戏目录 / 冒烟测试 / 自动点一次启动
+# 指定游戏目录 / 冒烟测试 / 自动点一次启动 / 直接打开某页
 dotnet run --project OML.Desktop -- --game-dir "D:\mc\.minecraft"
 dotnet run --project OML.Desktop -- --smoke
 dotnet run --project OML.Desktop -- --auto-launch
+dotnet run --project OML.Desktop -- --nav accounts
 ```
 
 ## OML.Abstractions 结构

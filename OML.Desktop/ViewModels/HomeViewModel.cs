@@ -1,58 +1,41 @@
-using System.Collections.ObjectModel;
-using System.Text;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using OML.Abstractions.Auth;
-using OML.Abstractions.Configuration;
 using OML.Abstractions.Launching;
 using OML.Core.Auth;
-using OML.Core.Configuration;
 using OML.Core.Launching;
 using OML.Core.Versioning;
+using OML.Desktop.Infrastructure;
 
 namespace OML.Desktop.ViewModels;
 
 /// <summary>
-/// 主窗口 ViewModel。
+/// 主页：版本列表 + 启动 + 日志。
 /// <para>
-/// 线程约定：所有可绑定属性只在 UI 线程修改。
-/// 游戏日志来自后台线程，先进入缓冲队列，由 <see cref="DispatcherTimer"/> 每 150ms 批量刷到
-/// <see cref="Logs"/>——逐行触发 PropertyChanged 会让 TextBox 在高频日志下卡死。
+/// 所有可绑定属性只在 UI 线程修改；游戏日志走缓冲区 + 150ms 批量刷新。
 /// </para>
 /// </summary>
-public partial class MainViewModel : ObservableObject
+public partial class HomeViewModel : ObservableObject
 {
     private const int MaxLogLength = 200_000;
 
-    private readonly ConfigManager _configManager;
-    private readonly string? _gameDirectoryOverride;
+    private readonly LauncherContext _context;
     private readonly LaunchSession _session = new();
-    private readonly StringBuilder _pendingLogs = new();
+    private readonly System.Text.StringBuilder _pendingLogs = new();
     private readonly object _logGate = new();
-    private readonly DispatcherTimer _logTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _logTimer;
 
-    private GameDirectory? _gameDirectory;
-
-    public MainViewModel(ConfigManager configManager, string? gameDirectoryOverride = null)
+    public HomeViewModel(LauncherContext context)
     {
-        _configManager = configManager ?? throw new ArgumentNullException(nameof(configManager));
-        _gameDirectoryOverride = gameDirectoryOverride;
+        _context = context ?? throw new ArgumentNullException(nameof(context));
 
         _session.LogReceived += OnGameLog;
 
-        _logTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _logTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         _logTimer.Tick += (_, _) => FlushLogs();
         _logTimer.Start();
-
-        _ = InitializeAsync();
     }
 
-    /// <summary>本地版本列表。</summary>
-    public ObservableCollection<LocalVersionInfo> Versions { get; } = new();
-
-    /// <summary>配置文件路径（底部状态栏展示）。</summary>
-    public string ConfigPath => _configManager.ConfigPath;
+    public System.Collections.ObjectModel.ObservableCollection<LocalVersionInfo> Versions { get; } = new();
 
     [ObservableProperty]
     private LocalVersionInfo? selectedVersion;
@@ -61,7 +44,7 @@ public partial class MainViewModel : ObservableObject
     private string logs = string.Empty;
 
     [ObservableProperty]
-    private string statusText = "正在扫描本地版本…";
+    private string statusText = "就绪";
 
     [ObservableProperty]
     private double progressValue;
@@ -69,69 +52,45 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool isBusy;
 
-    /// <summary>按钮可用性：没选版本或正在启动时禁用。</summary>
     public bool CanLaunch => !IsBusy && SelectedVersion is not null;
 
     partial void OnIsBusyChanged(bool value) => LaunchCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedVersionChanged(LocalVersionInfo? value) => LaunchCommand.NotifyCanExecuteChanged();
 
-    private async Task InitializeAsync()
+    /// <summary>扫描本地版本（由 Shell 在初始化后调用）。</summary>
+    public void ReloadVersions(string? preferredId = null)
     {
         try
         {
-            var config = await _configManager.LoadAsync();
+            var game = _context.CreateGameDirectory();
+            var found = new LocalVersionScanner(game).Scan();
 
-            var path = _gameDirectoryOverride;
-            if (string.IsNullOrWhiteSpace(path))
+            Versions.Clear();
+            foreach (var version in found)
             {
-                path = string.IsNullOrWhiteSpace(config.GameDirectory) ? null : config.GameDirectory;
+                Versions.Add(version);
             }
 
-            _gameDirectory = string.IsNullOrWhiteSpace(path)
-                ? GameDirectory.LocateDefault()
-                : new GameDirectory(path!, config.VersionIsolation);
+            SelectedVersion = Versions.FirstOrDefault(v =>
+                                  string.Equals(v.Id, preferredId ?? _context.Config.SelectedVersion, StringComparison.OrdinalIgnoreCase))
+                              ?? Versions.FirstOrDefault();
 
-            ScanVersions(config.SelectedVersion);
-
-            AppendLog($"[OML] 游戏目录：{_gameDirectory.Root}");
-            AppendLog($"[OML] 账户：{config.UserProfile?.Username ?? "未配置（启动时将创建离线账号）"}");
             StatusText = Versions.Count == 0
                 ? "未找到本地版本，请先把版本安装到游戏目录"
                 : $"找到 {Versions.Count} 个本地版本";
         }
         catch (Exception ex)
         {
-            StatusText = "初始化失败";
+            StatusText = "扫描版本失败";
             AppendLog($"[错误] {ex.GetType().Name}: {ex.Message}");
         }
     }
 
-    private void ScanVersions(string? preferredId)
-    {
-        if (_gameDirectory is null)
-        {
-            return;
-        }
-
-        var scanner = new LocalVersionScanner(_gameDirectory);
-        var found = scanner.Scan();
-
-        Versions.Clear();
-        foreach (var version in found)
-        {
-            Versions.Add(version);
-        }
-
-        SelectedVersion = Versions.FirstOrDefault(v =>
-                              string.Equals(v.Id, preferredId, StringComparison.OrdinalIgnoreCase))
-                          ?? Versions.FirstOrDefault();
-    }
-
-    [RelayCommand(CanExecute = nameof(CanLaunch))]
+    [CommunityToolkit.Mvvm.Input.RelayCommand(CanExecute = nameof(CanLaunch))]
     private async Task LaunchAsync()
     {
-        if (SelectedVersion is null || _gameDirectory is null)
+        if (SelectedVersion is null)
         {
             return;
         }
@@ -139,11 +98,12 @@ public partial class MainViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var config = await _configManager.LoadAsync();
+            // 关键：用共享配置的当前值，账号页刚登录的档案必须生效。
+            var config = _context.Config;
             config.SelectedVersion = SelectedVersion.Id;
-            config.GameDirectory = _gameDirectory.Root;
+            config.GameDirectory = _context.CreateGameDirectory().Root;
             config.UserProfile ??= OfflineAuthService.CreateProfile("Player");
-            await _configManager.SaveAsync(config);
+            await _context.SaveAsync();
 
             StatusText = "准备启动…";
             ProgressValue = 0;
@@ -155,7 +115,6 @@ public partial class MainViewModel : ObservableObject
             });
 
             var info = await _session.LaunchGameAsync(config, progress);
-
             AppendLog($"[OML] 进程已启动，PID {info.Process.Id}");
             StatusText = "游戏运行中…";
 
@@ -193,7 +152,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>把缓冲区刷到绑定属性（只在 UI 线程调用）。</summary>
     private void FlushLogs()
     {
         string chunk;

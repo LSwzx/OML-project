@@ -1,0 +1,136 @@
+<Page x:Class="OML.Desktop.Views.Pages.AccountsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="20,8,20,20" MaxWidth="860" HorizontalAlignment="Left">
+
+            <TextBlock Text="账号" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,16" />
+
+            <!-- 当前账号 -->
+            <Border CornerRadius="8"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    Padding="16"
+                    Margin="0,0,0,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 头像占位：首字母 -->
+                    <Border Grid.Column="0"
+                            Width="64"
+                            Height="64"
+                            CornerRadius="32"
+                            Background="{DynamicResource AccentFillColorDefaultBrush}"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ProfileInitial}"
+                                   Foreground="White"
+                                   FontSize="26"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ProfileName}" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Opacity="0.7" FontSize="12" Margin="0,4,0,0">
+                            <Run Text="UUID：" /><Run Text="{Binding ProfileUuid, Mode=OneWay}" />
+                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Opacity="0.7" FontSize="12">
+                                <Run Text="类型：" /><Run Text="{Binding ProfileType, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock Opacity="0.7" FontSize="12" Margin="16,0,0,0">
+                                <Run Text="皮肤：" /><Run Text="{Binding ProfileSkin, Mode=OneWay}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 添加账号 -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 离线 -->
+                <Border Grid.Column="0"
+                        CornerRadius="8"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="离线登录" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="仅本地生成 UUID，不联网。适合单人游戏与离线服务器。"
+                                   Opacity="0.6"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12" />
+
+                        <TextBlock Text="用户名" FontSize="12" Opacity="0.8" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding OfflineUsername, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="34"
+                                 VerticalContentAlignment="Center" />
+
+                        <ui:Button Content="创建离线账号"
+                                   Command="{Binding CreateOfflineCommand}"
+                                   Appearance="Primary"
+                                   Margin="0,12,0,0"
+                                   Height="34"
+                                   HorizontalAlignment="Left"
+                                   MinWidth="140" />
+                    </StackPanel>
+                </Border>
+
+                <!-- LittleSkin -->
+                <Border Grid.Column="2"
+                        CornerRadius="8"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="LittleSkin 登录" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="外置 Yggdrasil 登录，可加载皮肤与披风。"
+                                   Opacity="0.6"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12" />
+
+                        <TextBlock Text="邮箱" FontSize="12" Opacity="0.8" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding LittleSkinEmail, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="34"
+                                 VerticalContentAlignment="Center" />
+
+                        <TextBlock Text="密码" FontSize="12" Opacity="0.8" Margin="0,10,0,4" />
+                        <PasswordBox x:Name="LittleSkinPasswordBox"
+                                     Height="34"
+                                     VerticalContentAlignment="Center"
+                                     PasswordChanged="PasswordBox_OnPasswordChanged" />
+
+                        <ui:Button Content="登录"
+                                   Command="{Binding LoginLittleSkinCommand}"
+                                   Appearance="Primary"
+                                   Margin="0,12,0,0"
+                                   Height="34"
+                                   HorizontalAlignment="Left"
+                                   MinWidth="140" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <TextBlock Text="{Binding StatusText}"
+                       Opacity="0.8"
+                       FontSize="12"
+                       Margin="0,18,0,0"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Text="微软正版登录将在 Mojang 应用白名单审核通过后开放。"
+                       Opacity="0.5"
+                       FontSize="11"
+                       Margin="0,8,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

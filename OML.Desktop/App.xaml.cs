@@ -3,19 +3,23 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
 using OML.Core.Configuration;
+using OML.Desktop.Infrastructure;
 using OML.Desktop.ViewModels;
 using Wpf.Ui.Appearance;
 
 namespace OML.Desktop;
 
 /// <summary>
-/// 应用入口。手工组装依赖（配置管理器 → ViewModel → 窗口），
-/// 不引入 DI 容器——目前只有三个对象，容器反而增加理解成本。
+/// 应用入口。手工组装依赖（配置上下文 → 外壳 ViewModel → 窗口），
+/// 初始化显式执行并捕获异常——构造函数里的 async void 会把错误吞进日志。
 /// </summary>
 public partial class App : Application
 {
-    /// <summary>品牌色。不跟随系统强调色，避免用户把系统主题换成绿色后整个启动器变荧光绿。</summary>
+    /// <summary>品牌色。不跟随系统强调色，避免用户换绿色主题后整个启动器变荧光绿。</summary>
     private static readonly Color BrandAccent = Color.FromRgb(0x4C, 0x8B, 0xF5);
+
+    /// <summary>全局外壳 ViewModel（导航页从这里取自己的 DataContext）。</summary>
+    public static ShellViewModel? Shell { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -28,30 +32,56 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "OML");
 
-        var configManager = new ConfigManager(launcherRoot);
-        var gameDirectoryOverride = ReadArgument(e.Args, "--game-dir");
+        var context = new LauncherContext(new ConfigManager(launcherRoot));
+        var shell = new ShellViewModel(context);
+        Shell = shell;
+        var window = new MainWindow { DataContext = shell };
 
-        var viewModel = new MainViewModel(configManager, gameDirectoryOverride);
-        var window = new MainWindow { DataContext = viewModel };
+        var gameDirectoryOverride = ReadArgument(e.Args, "--game-dir");
+        var initialPage = ReadArgument(e.Args, "--nav");
+        var offlineAccount = ReadArgument(e.Args, "--create-offline");
+
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await shell.InitializeAsync();
+
+                if (!string.IsNullOrWhiteSpace(gameDirectoryOverride))
+                {
+                    // 临时覆盖目录：只影响本次运行，不写回配置。
+                    context.Config.GameDirectory = gameDirectoryOverride;
+                    shell.Home.ReloadVersions();
+                }
+
+                window.NavigateTo(string.IsNullOrWhiteSpace(initialPage) ? "home" : initialPage);
+
+                if (!string.IsNullOrWhiteSpace(offlineAccount))
+                {
+                    await shell.Accounts.CreateOfflineAccountAsync(offlineAccount);
+                }
+
+                if (e.Args.Contains("--auto-launch"))
+                {
+                    shell.Home.LaunchCommand.Execute(null);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"初始化失败：{ex.Message}\n\n配置文件：{context.ConfigPath}",
+                    "OML",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                Shutdown(1);
+            }
+        };
 
         window.Show();
 
-        // 调试：自动触发一次启动，用于验证"点击 → 进度 → 日志"整条界面链路。
-        if (e.Args.Contains("--auto-launch"))
-        {
-            var launchTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            launchTimer.Tick += (_, _) =>
-            {
-                launchTimer.Stop();
-                viewModel.LaunchCommand.Execute(null);
-            };
-            launchTimer.Start();
-        }
-
-        // 冒烟模式：用于无交互环境验证"窗口能起来、绑定不炸"，2.5 秒后自动退出。
         if (e.Args.Contains("--smoke"))
         {
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             timer.Tick += (_, _) =>
             {
                 timer.Stop();

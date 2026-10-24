@@ -1,23 +1,40 @@
 using System.Windows;
 using System.Windows.Controls;
+using OML.Desktop.Infrastructure;
+using OML.Desktop.ViewModels;
 using Wpf.Ui.Controls;
 
 namespace OML.Desktop;
 
-/// <summary>主窗口。视图逻辑只有自动滚动，其余全在 ViewModel。</summary>
+/// <summary>外壳窗口：只负责导航，业务全在 ViewModel。</summary>
 public partial class MainWindow : FluentWindow
 {
     public MainWindow()
     {
         InitializeComponent();
+
+        // NavigationView 默认没有页面提供者，必须注入后才能 Navigate(Type)。
+        RootNavigation.SetPageProviderService(new NavigationPageProvider());
     }
 
-    /// <summary>日志追加后滚到底部，否则用户永远看到第一屏。</summary>
-    private void LogBox_OnTextChanged(object sender, TextChangedEventArgs e)
+    /// <summary>按标签切页（供启动参数与导航栏共用）。</summary>
+    public void NavigateTo(string tag)
     {
-        if (sender is System.Windows.Controls.TextBox textBox)
+        foreach (var item in RootNavigation.MenuItems)
         {
-            textBox.ScrollToEnd();
+            if (item is NavigationViewItem navigationItem &&
+                string.Equals(navigationItem.Tag as string, tag, StringComparison.OrdinalIgnoreCase) &&
+                navigationItem.TargetPageType is { } pageType)
+            {
+                navigationItem.Activate(RootNavigation);
+                RootNavigation.Navigate(pageType, null);
+                break;
+            }
+        }
+
+        if (DataContext is ShellViewModel shell)
+        {
+            shell.Navigate(tag);
         }
     }
 }
