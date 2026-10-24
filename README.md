@@ -115,11 +115,12 @@ OML.Desktop/
   所以 `GameDirectory` / `LocalVersionScanner` 不需要特殊处理。
 - **单文件发布**：`dotnet publish OML.Desktop -c Release -o publish` 产出约 71MB 的
   自包含 `OML.Desktop.exe`。WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`。
-- **3D 皮肤预览**：`Viewport3D` 用 6 个长方体（头 8³、身 8×12×4、四肢 4×12×4）
-  拼出 Steve 模型，每个面按 64×64 皮肤 UV 表取贴图，支持 64×64 / 128×128 与 64×32 旧格式；
-  鼠标拖动可旋转。离线账号使用仓库内置的 `images/offline/steve.png`（编进程序集资源）。
-  UV 归一化固定除以 64（高清皮肤缩放不偏移），采样前把贴图最近邻放大 8 倍并内缩半像素，
-  避免线性过滤跨区域渗色导致的灰边/透明"玻璃"效果。
+- **3D 皮肤预览**：使用第三方控件
+  [`mokkignomov-design/WPF-Minecraft-Skin-Viewer`](https://github.com/mokkignomov-design/WPF-Minecraft-Skin-Viewer)
+  的 `SkinView.cs`（MIT，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)），
+  纯 WPF、零依赖，自带 Slim/Classic 识别与双层皮肤（帽子、袖子）渲染；
+  鼠标拖动旋转，空闲 4 秒后自动旋转。离线账号使用仓库内置的
+  `images/offline/steve.png`（编进程序集资源）。
 - **自动更新**：Velopack 1.2，启动时静默检查，发现新版本在窗口顶部显示绿色提示条，
   点"后台下载并重启更新"下载并重启。更新源可用 `OML_UPDATE_SOURCE`
   指向本地目录或 HTTP 服务，方便本地联调（详见 [docs/UPDATE.md](docs/UPDATE.md)）。

@@ -79,6 +79,10 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private string? skinImagePath;
 
+    /// <summary>3D 预览的皮肤位图（第三方 SkinView 控件直接使用）。</summary>
+    [ObservableProperty]
+    private System.Windows.Media.Imaging.BitmapSource? skinBitmap;
+
     public bool IsJavaSelected => CurrentPlatform == CurrentPlatform.Java;
 
     public bool IsBedrockSelected => CurrentPlatform == CurrentPlatform.Bedrock;
@@ -143,7 +147,7 @@ public partial class HomeViewModel : ObservableObject
         _ = RefreshSkinAsync();
     }
 
-    /// <summary>下载（或读缓存）皮肤并裁出头部；失败回退 Steve。</summary>
+    /// <summary>下载（或读缓存）皮肤，并同时准备 3D 预览用的位图；失败回退 Steve。</summary>
     public async Task RefreshSkinAsync()
     {
         var profile = _context.Config.UserProfile;
@@ -152,6 +156,7 @@ public partial class HomeViewModel : ObservableObject
         {
             SkinHead = SkinImageLoader.SteveHead;
             SkinImagePath = null;
+            SkinBitmap = LoadSkinBitmap(null);
             return;
         }
 
@@ -165,6 +170,7 @@ public partial class HomeViewModel : ObservableObject
             {
                 SkinImagePath = path;
                 SkinHead = SkinImageLoader.LoadHead(path);
+                SkinBitmap = LoadSkinBitmap(path);
             });
         }
         catch
@@ -173,7 +179,37 @@ public partial class HomeViewModel : ObservableObject
             {
                 SkinImagePath = null;
                 SkinHead = SkinImageLoader.SteveHead;
+                SkinBitmap = LoadSkinBitmap(null);
             });
+        }
+    }
+
+    /// <summary>把皮肤路径读成 BitmapSource；空/失败时使用内置 Steve 皮肤资源。</summary>
+    private static System.Windows.Media.Imaging.BitmapSource LoadSkinBitmap(string? path)
+    {
+        var uri = !string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path)
+            ? new Uri(path, UriKind.Absolute)
+            : new Uri("pack://application:,,,/Assets/steve_skin.png", UriKind.Absolute);
+
+        try
+        {
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bitmap.UriSource = uri;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            var fallback = new System.Windows.Media.Imaging.BitmapImage();
+            fallback.BeginInit();
+            fallback.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            fallback.UriSource = new Uri("pack://application:,,,/Assets/steve_skin.png", UriKind.Absolute);
+            fallback.EndInit();
+            fallback.Freeze();
+            return fallback;
         }
     }
 
