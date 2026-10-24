@@ -105,6 +105,11 @@ public partial class App : Application
                     await shell.Install.InstallVersionAsync(autoInstall);
                 }
 
+                if (e.Args.Contains("--install-detail"))
+                {
+                    await Task.Delay(1200);
+                    shell.Install.IsDetailOpen = true;
+                }
                 if (!string.IsNullOrWhiteSpace(autoFabric))
                 {
                     window.NavigateTo("install");

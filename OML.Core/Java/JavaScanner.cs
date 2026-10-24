@@ -218,6 +218,78 @@ public sealed class JavaScanner
     }
 
     /// <summary>
+    /// 判断某个 java.exe 是不是 32 位。
+    /// <para>
+    /// 32 位 JVM 的最大堆通常只有 1.5–2GB，分配超过 2048MB 会直接抛
+    /// <c>Invalid maximum heap size</c> 并退出，所以启动前必须先拦截。
+    /// 用 <c>-XshowSettings:properties</c> 读 <c>os.arch</c>（32 位为 x86）。
+    /// </para>
+    /// </summary>
+    public async Task<bool> Is32BitAsync(string javaExePath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(javaExePath))
+        {
+            return false;
+        }
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(javaExePath);
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            return false;
+        }
+
+        var startInfo = new ProcessStartInfo(fullPath)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        startInfo.ArgumentList.Add("-XshowSettings:properties");
+        startInfo.ArgumentList.Add("-version");
+
+        using var process = new Process { StartInfo = startInfo };
+        if (!process.Start())
+        {
+            return false;
+        }
+
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ProbeTimeout);
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            TryKill(process);
+            return false;
+        }
+
+        var output = string.Concat(await stderr.ConfigureAwait(false), "\n", await stdout.ConfigureAwait(false));
+        var archLine = output
+            .Split('\n')
+            .FirstOrDefault(l => l.Contains("os.arch", StringComparison.OrdinalIgnoreCase));
+
+        return archLine is not null &&
+               archLine.Contains("x86", StringComparison.OrdinalIgnoreCase) &&
+               !archLine.Contains("64", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// 找一台满足最低版本要求的 Java：优先精确匹配，其次"够用的最低版本"。
     /// 找不到返回 <c>null</c>（由上层决定是提示用户还是自动下载）。
     /// </summary>

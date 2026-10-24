@@ -261,6 +261,22 @@ public partial class ModsViewModel : ObservableObject
         {
             var dependencies = await ResolveDependenciesAsync(version);
 
+            // 没有依赖时也要明确确认一次（PCL 式：选中 → 确认 → 后台队列）。
+            if (dependencies.Count == 0 && !AutoConfirmDependencies)
+            {
+                var confirm = System.Windows.MessageBox.Show(
+                    $"即将下载：\n\n{item.Title}\n版本 {version.VersionNumber}\n目标目录：{ContentFolder}/\n\n确认加入后台队列？",
+                    "下载确认",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
+
+                if (confirm != System.Windows.MessageBoxResult.Yes)
+                {
+                    StatusText = "已取消下载";
+                    return;
+                }
+            }
+
             var includeDependencies = dependencies.Count > 0;
             if (dependencies.Count > 0 && !AutoConfirmDependencies)
             {

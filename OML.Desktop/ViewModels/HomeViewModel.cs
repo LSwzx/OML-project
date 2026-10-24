@@ -19,7 +19,7 @@ public partial class HomeViewModel : ObservableObject
     private const int MaxLogLength = 200_000;
 
     private readonly LauncherContext _context;
-    private readonly LaunchSession _session = new();
+    private readonly LaunchSession _session;
     private readonly System.Text.StringBuilder _pendingLogs = new();
     private readonly object _logGate = new();
     private readonly System.Windows.Threading.DispatcherTimer _logTimer;
@@ -28,6 +28,8 @@ public partial class HomeViewModel : ObservableObject
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
 
+        // 自动下载 Java 需要启动器根目录（runtimes/ 放在这里）。
+        _session = new LaunchSession(launcherRoot: System.IO.Path.GetDirectoryName(context.ConfigPath));
         _session.LogReceived += OnGameLog;
 
         _logTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
@@ -264,6 +266,9 @@ public partial class HomeViewModel : ObservableObject
             return;
         }
 
+        // 每次启动都从空日志开始，不残留上一次的内容。
+        Logs = string.Empty;
+
         IsBusy = true;
         try
         {
@@ -297,6 +302,17 @@ public partial class HomeViewModel : ObservableObject
         {
             StatusText = "启动失败";
             AppendLog($"[错误] {ex.GetType().Name}: {ex.Message}");
+
+            // 32 位 Java / 内存过大属于用户可修复的问题，明确弹窗而不是只写日志。
+            if (ex is InvalidOperationException &&
+                ex.Message.Contains("32 位", StringComparison.Ordinal))
+            {
+                System.Windows.MessageBox.Show(
+                    ex.Message,
+                    "Java 架构与内存设置不匹配",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            }
         }
         finally
         {

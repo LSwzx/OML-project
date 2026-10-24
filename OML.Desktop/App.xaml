@@ -15,6 +15,15 @@
 
             <!-- Modrinth 绿 -->
             <SolidColorBrush x:Key="OMLGreenBrush" Color="#1BD96A" />
+
+            <!--
+                深色主题兜底：很多页面用的是普通 TextBlock，默认 Foreground 是系统黑色，
+                在深灰背景上几乎不可读。这里给所有 TextBlock 一个浅色默认前景；
+                控件自己设置过 Foreground 的地方仍然优先（本地值 > 样式）。
+            -->
+            <Style TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

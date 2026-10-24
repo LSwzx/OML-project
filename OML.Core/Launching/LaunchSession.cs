@@ -29,11 +29,15 @@ public sealed class LaunchSession : IDisposable
 
     /// <param name="httpClient">可注入共享客户端；为 <c>null</c> 时自建。</param>
     /// <param name="downloadEngine">可注入下载引擎；为 <c>null</c> 时使用 <see cref="PclStyleDownloader"/>。</param>
-    public LaunchSession(HttpClient? httpClient = null, IDownloadEngine? downloadEngine = null)
+    private readonly string _launcherRoot;
+
+    public LaunchSession(HttpClient? httpClient = null, IDownloadEngine? downloadEngine = null, string? launcherRoot = null)
     {
         _ownsHttpClient = httpClient is null;
         _http = httpClient ?? OmlHttpClientFactory.Create();
         _downloadEngine = downloadEngine;
+        _launcherRoot = launcherRoot ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OML");
     }
 
     /// <summary>游戏日志行（stdout + stderr），供 UI 追加到控制台。</summary>
@@ -100,7 +104,7 @@ public sealed class LaunchSession : IDisposable
                 nativesDirectory);
             Report(progress, LaunchStage.Extracting, 1, $"已解压 {extracted.Count} 个本地库");
 
-            var javaPath = await ResolveJavaAsync(config, version, cancellationToken).ConfigureAwait(false);
+            var javaPath = await ResolveJavaAsync(config, version, progress, cancellationToken).ConfigureAwait(false);
 
             // Forge 的 BootstrapLauncher 通过 -p 模块路径加载 client jar，
             // classpath 里再放一份会被当成第二个模块（module minecraft / _1._20._1 冲突）。
@@ -281,22 +285,74 @@ public sealed class LaunchSession : IDisposable
     private async Task<string> ResolveJavaAsync(
         LauncherConfig config,
         VersionDetail version,
+        IProgress<LaunchProgress>? progress,
         CancellationToken cancellationToken)
     {
+        var required = version.JavaVersion?.MajorVersion ?? 8;
+        var component = version.JavaVersion?.Component ?? "java-runtime-gamma";
+        string? javaPath = null;
+
         if (!string.IsNullOrWhiteSpace(config.JavaPath) && File.Exists(config.JavaPath))
         {
-            return config.JavaPath;
+            javaPath = config.JavaPath;
+        }
+        else
+        {
+            // 配置里的路径失效时不要直接失败：回退到自动探测。
+            javaPath = await _javaScanner.FindSuitableJavaAsync(required, cancellationToken).ConfigureAwait(false);
         }
 
-        // 配置里的路径失效时不要直接失败：回退到自动探测，比让用户面对
-        // "Java 路径无效" 的报错更有用。
-        var required = version.JavaVersion?.MajorVersion ?? 8;
-        var javaPath = await _javaScanner.FindSuitableJavaAsync(required, cancellationToken).ConfigureAwait(false);
+        // 探测到的是 32 位 Java 且内存超过 2048MB 时，也尝试下载 64 位运行时：
+        // 32 位 JVM 会直接抛 "Invalid maximum heap size" 并退出。
+        var tooSmall = javaPath is not null &&
+                       config.MaxMemoryMB > 2048 &&
+                       await _javaScanner.Is32BitAsync(javaPath, cancellationToken).ConfigureAwait(false);
+
+        if (javaPath is null || tooSmall)
+        {
+            progress?.Report(new LaunchProgress(
+                LaunchStage.Downloading, 0.02,
+                javaPath is null
+                    ? $"未检测到 Java {required}，正在自动下载 {component}"
+                    : $"当前 Java 是 32 位，正在下载 64 位 {component}"));
+
+            try
+            {
+                using var downloader = new JavaRuntimeDownloader(_launcherRoot);
+                var runtime = await downloader.DownloadAsync(
+                    component,
+                    new Progress<double>(v => progress?.Report(new LaunchProgress(
+                        LaunchStage.Downloading,
+                        0.02 + v * 0.25,
+                        $"下载 Java {component}：{v:P0}"))),
+                    cancellationToken).ConfigureAwait(false);
+
+                javaPath = runtime.JavaPath;
+            }
+            catch (Exception ex)
+            {
+                // 完全没有 Java 才算致命；32 位回退失败时交给下面的拦截提示。
+                if (javaPath is null)
+                {
+                    throw new InvalidOperationException(
+                        $"缺少 Java {required}，自动下载失败：{ex.Message}\n\n请在设置里手动指定 Java 路径。", ex);
+                }
+            }
+        }
 
         if (javaPath is null)
         {
             throw new InvalidOperationException(
-                $"未找到 Java {required} 或更高版本。请安装 JDK {required}+ 或在配置中指定 JavaPath。");
+                $"缺少 Java {required}，自动下载失败。请在设置里手动指定 Java 路径。");
+        }
+
+        // 32 位 JVM 最大堆通常只有 1.5-2GB，超过 2048MB 会直接抛
+        // "Invalid maximum heap size" 并退出，启动前必须拦截。
+        if (config.MaxMemoryMB > 2048 &&
+            await _javaScanner.Is32BitAsync(javaPath, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException(
+                $"当前使用的是 32 位 Java：\n{javaPath}\n\n32 位 JVM 最多只能分配 2048MB 内存（当前设置 {config.MaxMemoryMB}MB）。\n请改用 64 位 Java，或在设置里把内存调整到 2048MB 以内。");
         }
 
         return javaPath;

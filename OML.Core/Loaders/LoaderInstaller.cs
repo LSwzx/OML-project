@@ -153,6 +153,32 @@ public sealed class LoaderInstaller : IDisposable
     /// 安装 Forge：下载官方 installer.jar，用 Java 执行 <c>--installClient</c>，
     /// 然后从 versions/ 里找出新生成的版本。
     /// </summary>
+    /// <summary>取该 MC 版本可选的 Forge 版本（推荐版 + 最新版，去重）。</summary>
+    public async Task<IReadOnlyList<string>> GetForgeVersionsAsync(
+        string gameVersion,
+        CancellationToken cancellationToken = default)
+    {
+        var json = await GetStringAsync(ForgePromotionsUrl, cancellationToken).ConfigureAwait(false);
+        using var document = JsonDocument.Parse(json);
+
+        var results = new List<string>();
+
+        if (document.RootElement.TryGetProperty("promos", out var promos))
+        {
+            foreach (var key in new[] { $"{gameVersion}-recommended", $"{gameVersion}-latest" })
+            {
+                if (promos.TryGetProperty(key, out var value) &&
+                    value.GetString() is { Length: > 0 } version &&
+                    !results.Contains(version))
+                {
+                    results.Add(version);
+                }
+            }
+        }
+
+        return results;
+    }
+
     public async Task<LoaderInstallResult> InstallForgeAsync(
         string gameVersion,
         string? forgeVersion = null,

@@ -52,6 +52,39 @@ public partial class InstallViewModel : ObservableObject
     [ObservableProperty]
     private bool isBusy;
 
+    /// <summary>PCL 式向导：点列表里的版本后弹出附件面板。</summary>
+    [ObservableProperty]
+    private bool isDetailOpen;
+
+    [ObservableProperty]
+    private string searchText = string.Empty;
+
+    [ObservableProperty]
+    private bool installAssetsOption;
+
+    [ObservableProperty]
+    private bool installFabricOption;
+
+    [ObservableProperty]
+    private bool installForgeOption;
+
+    [ObservableProperty]
+    private bool installOptiFineOption;
+
+    [ObservableProperty]
+    private string? optiFineJarPath;
+
+    [ObservableProperty]
+    private string? forgeVersion;
+
+    public System.Collections.ObjectModel.ObservableCollection<string> ForgeVersions { get; } = new();
+
+    public bool HasOptiFineJar => !string.IsNullOrWhiteSpace(OptiFineJarPath);
+
+    partial void OnOptiFineJarPathChanged(string? value) => OnPropertyChanged(nameof(HasOptiFineJar));
+
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
     public string DetailText => SelectedVersion is null
         ? "选择一个版本查看详情"
         : $"{SelectedVersion.Id}\n类型：{SelectedVersion.Type}\n发布时间：{SelectedVersion.ReleaseTime:yyyy-MM-dd HH:mm}";
@@ -104,13 +137,233 @@ public partial class InstallViewModel : ObservableObject
             _ => null,
         };
 
-        foreach (var version in _allVersions.Where(v => wanted is null ||
-                                                        string.Equals(v.Type, wanted, StringComparison.OrdinalIgnoreCase)))
+        var query = SearchText?.Trim() ?? string.Empty;
+
+        foreach (var version in _allVersions.Where(v =>
+                     (wanted is null || string.Equals(v.Type, wanted, StringComparison.OrdinalIgnoreCase)) &&
+                     (query.Length == 0 || v.Id.Contains(query, StringComparison.OrdinalIgnoreCase))))
         {
             Versions.Add(version);
         }
 
         SelectedVersion = Versions.FirstOrDefault();
+    }
+
+    // ---------------------------------------------------------------- PCL 式下载向导
+
+    /// <summary>点列表里的版本：打开附件面板。</summary>
+    [RelayCommand]
+    private void OpenDetail(VersionSummary? version)
+    {
+        if (version is null)
+        {
+            return;
+        }
+
+        SelectedVersion = version;
+        InstallAssetsOption = _context.Config.CompleteAssets;
+        InstallFabricOption = false;
+        InstallForgeOption = false;
+        InstallOptiFineOption = false;
+        ForgeVersion = null;
+        ForgeVersions.Clear();
+        IsDetailOpen = true;
+
+        _ = LoadForgeVersionsAsync(version.Id);
+    }
+
+    [RelayCommand]
+    private void CloseDetail() => IsDetailOpen = false;
+
+    private async Task LoadForgeVersionsAsync(string gameVersion)
+    {
+        try
+        {
+            var game = _context.CreateGameDirectory();
+            using var loader = new LoaderInstaller(game);
+            var versions = await loader.GetForgeVersionsAsync(gameVersion);
+
+            DispatcherHelper.Run(() =>
+            {
+                ForgeVersions.Clear();
+                foreach (var version in versions)
+                {
+                    ForgeVersions.Add(version);
+                }
+
+                ForgeVersion = ForgeVersions.FirstOrDefault();
+            });
+        }
+        catch
+        {
+            // 查不到 Forge 版本时下拉为空，不影响原版/Fabric 安装。
+        }
+    }
+
+    [RelayCommand]
+    private void PickOptiFine()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "选择 OptiFine 安装包",
+            Filter = "OptiFine 安装包 (*.jar)|*.jar",
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            OptiFineJarPath = dialog.FileName;
+            InstallOptiFineOption = true;
+        }
+    }
+
+    /// <summary>把「原版 + 附件 + 资源」打包成一个后台任务。</summary>
+    [RelayCommand]
+    private async Task BeginDownloadAsync()
+    {
+        if (SelectedVersion is null || IsBusy)
+        {
+            return;
+        }
+
+        if (InstallOptiFineOption && string.IsNullOrWhiteSpace(OptiFineJarPath))
+        {
+            System.Windows.MessageBox.Show(
+                "已勾选 OptiFine，但还没有选择安装包。",
+                "OML",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        var versionId = SelectedVersion.Id;
+        var installAssets = InstallAssetsOption;
+        var fabric = InstallFabricOption;
+        var forge = InstallForgeOption;
+        var optiFine = InstallOptiFineOption;
+        var optiFinePath = OptiFineJarPath;
+        var forgeVersion = ForgeVersion;
+
+        IsDetailOpen = false;
+        IsBusy = true;
+        try
+        {
+            var game = _context.CreateGameDirectory();
+
+            var item = BackgroundTaskManager.Instance.Enqueue($"安装 {versionId}", async (progress, ct) =>
+            {
+                using var installer = new VersionInstaller(game);
+                var report = new Progress<LaunchProgress>(p =>
+                {
+                    DispatcherHelper.Run(() => StatusText = p.Message);
+                    progress.Report(p.Percent / 100.0);
+                });
+
+                await installer.InstallVersionAsync(
+                    versionId,
+                    new InstallOptions
+                    {
+                        InstallAssets = installAssets,
+                        EnsureJava = false,
+                        MaxConcurrency = 8,
+                    },
+                    report,
+                    ct);
+
+                if (fabric)
+                {
+                    DispatcherHelper.Run(() => StatusText = "安装 Fabric…");
+                    using var loader = new LoaderInstaller(game);
+                    await loader.InstallFabricAsync(versionId, cancellationToken: ct);
+                }
+
+                if (forge)
+                {
+                    DispatcherHelper.Run(() => StatusText = "安装 Forge…");
+                    using var loader = new LoaderInstaller(game);
+                    await loader.InstallForgeAsync(versionId, forgeVersion, cancellationToken: ct);
+                }
+
+                if (optiFine && !string.IsNullOrWhiteSpace(optiFinePath))
+                {
+                    DispatcherHelper.Run(() => StatusText = "运行 OptiFine 安装器…");
+                    await RunOptiFineAsync(optiFinePath!, ct);
+                }
+
+                DispatcherHelper.Run(() =>
+                {
+                    StatusText = $"安装完成：{versionId}";
+                    ProgressValue = 100;
+                });
+
+                InstallCompleted?.Invoke(versionId);
+            });
+
+            if (!await item.Completed)
+            {
+                StatusText = item.WasCanceled ? "安装已取消" : $"安装失败：{item.Error}";
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>运行 OptiFine 安装器并检查是否生成了新版本。</summary>
+    private async Task RunOptiFineAsync(string jarPath, CancellationToken cancellationToken)
+    {
+        var game = _context.CreateGameDirectory();
+
+        var before = Directory.Exists(game.VersionsDirectory)
+            ? Directory.EnumerateDirectories(game.VersionsDirectory).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string?>();
+
+        var javaPath = await new JavaScanner().FindSuitableJavaAsync(8, cancellationToken)
+            ?? throw new InvalidOperationException("没有检测到可运行 OptiFine 安装器的 Java。");
+
+        var arguments = new LaunchArguments
+        {
+            JavaPath = javaPath,
+            WorkingDirectory = game.Root,
+            Arguments = new[] { "-jar", jarPath },
+        };
+
+        using var launcher = new JvmLauncher(Path.Combine(game.Root, "logs", "optifine"));
+        using var process = await launcher.LaunchAsync(arguments, cancellationToken);
+
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+                // 已退出。
+            }
+
+            throw;
+        }
+
+        var created = Directory.Exists(game.VersionsDirectory)
+            ? Directory.EnumerateDirectories(game.VersionsDirectory)
+                .Select(Path.GetFileName)
+                .Where(id => id is not null && !before.Contains(id))
+                .ToArray()
+            : Array.Empty<string?>();
+
+        if (created.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "没有检测到新版本：OptiFine 安装器是图形界面，需要在弹出的窗口里点 Install 再关闭。");
+        }
     }
 
     [RelayCommand]
