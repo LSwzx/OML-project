@@ -11,6 +11,11 @@
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 皮肤兜底图：编进程序集，单文件发布后仍可读取 -->
+    <Resource Include="Assets\steve_head.png" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>

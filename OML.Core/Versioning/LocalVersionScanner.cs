@@ -93,6 +93,13 @@ public sealed class LocalVersionScanner
             var jarPath = Path.Combine(directory, $"{id}.jar");
             var (instanceName, iconUrl) = ReadInstanceMetadata(Path.Combine(directory, "instance.json"));
 
+            // 本地图标优先：断网时主页也不会裂图。
+            var localIcon = Path.Combine(directory, "icon.png");
+            if (File.Exists(localIcon))
+            {
+                iconUrl = new Uri(localIcon).AbsoluteUri;
+            }
+
             results.Add(new LocalVersionInfo(
                 string.IsNullOrWhiteSpace(detail.Id) ? id : detail.Id,
                 string.IsNullOrWhiteSpace(detail.Type) ? "unknown" : detail.Type!,

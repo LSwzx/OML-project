@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Compression;
@@ -458,6 +459,21 @@ public partial class ModsViewModel : ObservableObject
                         new { name = index.Name, icon = iconUrl, packVersion = version.VersionNumber },
                         new JsonSerializerOptions { WriteIndented = true });
                     await File.WriteAllTextAsync(Path.Combine(instanceRoot, "instance.json"), metadata, ct);
+
+                    // 图标同时落一份本地文件，断网时主页不会裂图。
+                    if (!string.IsNullOrWhiteSpace(iconUrl))
+                    {
+                        try
+                        {
+                            using var iconClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                            var iconBytes = await iconClient.GetByteArrayAsync(iconUrl, ct);
+                            await File.WriteAllBytesAsync(Path.Combine(instanceRoot, "icon.png"), iconBytes, ct);
+                        }
+                        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+                        {
+                            // 图标下载失败不影响整合包安装。
+                        }
+                    }
 
                     foreach (var overridesName in new[] { "overrides", "client-overrides" })
                     {

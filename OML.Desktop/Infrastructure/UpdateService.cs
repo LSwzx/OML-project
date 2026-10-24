@@ -4,6 +4,18 @@ using Velopack.Sources;
 
 namespace OML.Desktop.Infrastructure;
 
+/// <summary>检查更新的结果状态。</summary>
+public enum UpdateCheckStatus
+{
+    NotInstalled,
+    UpToDate,
+    UpdateAvailable,
+    Failed,
+}
+
+/// <summary>一次更新检查的完整结果（含失败原因）。</summary>
+public sealed record UpdateCheckResult(UpdateCheckStatus Status, UpdateInfo? Update = null, string? Error = null);
+
 /// <summary>
 /// Velopack 自动更新。
 /// <para>
@@ -41,18 +53,37 @@ public sealed class UpdateService
     /// <summary>静默检查更新，失败/无更新返回 null。</summary>
     public async Task<UpdateInfo?> CheckAsync(CancellationToken cancellationToken = default)
     {
-        if (_manager is null || !_manager.IsInstalled)
+        var result = await CheckDetailedAsync(cancellationToken);
+        return result.Update;
+    }
+
+    /// <summary>
+    /// 显式检查更新（供"检查更新"按钮使用）：区分未安装 / 已最新 / 有新版本 / 网络失败。
+    /// </summary>
+    public async Task<UpdateCheckResult> CheckDetailedAsync(CancellationToken cancellationToken = default)
+    {
+        if (_manager is null)
         {
-            return null;
+            return new UpdateCheckResult(UpdateCheckStatus.NotInstalled, Error: "更新管理器初始化失败");
+        }
+
+        if (!_manager.IsInstalled)
+        {
+            return new UpdateCheckResult(
+                UpdateCheckStatus.NotInstalled,
+                Error: "当前不是通过安装包安装的版本，无法检查更新。请使用 Setup 或 MSI 安装后再试。");
         }
 
         try
         {
-            return await _manager.CheckForUpdatesAsync();
+            var update = await _manager.CheckForUpdatesAsync();
+            return update is null
+                ? new UpdateCheckResult(UpdateCheckStatus.UpToDate)
+                : new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, update);
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            return new UpdateCheckResult(UpdateCheckStatus.Failed, Error: ex.Message);
         }
     }
 

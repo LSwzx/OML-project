@@ -255,6 +255,16 @@ public partial class InstallViewModel : ObservableObject
             if (!await item.Completed)
             {
                 StatusText = item.WasCanceled ? "OptiFine 安装已取消" : $"OptiFine 安装失败：{item.Error}";
+
+                System.Windows.MessageBox.Show(
+                    item.WasCanceled
+                        ? "已取消 OptiFine 安装。"
+                        : $"OptiFine 安装未完成：\n{item.Error}\n\n" +
+                          "说明：OptiFine 官方安装器是图形界面，没有静默参数。\n" +
+                          "请在弹出的安装窗口里点击 Install，等它完成后关闭窗口，再重新导入一次。",
+                    "OptiFine",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
             }
         }
         finally

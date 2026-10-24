@@ -17,8 +17,11 @@
         </Style>
 
         <Style x:Key="GhostButton" TargetType="ui:Button">
-            <Setter Property="Appearance" Value="Secondary" />
             <Setter Property="Background" Value="#262A31" />
+            <Setter Property="Foreground" Value="#E6EAEF" />
+            <Setter Property="BorderBrush" Value="#3A4048" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Height" Value="30" />
             <Setter Property="Padding" Value="14,0" />
             <Setter Property="Margin" Value="0,0,8,0" />
@@ -75,11 +78,20 @@
                                     Padding="0"
                                     Command="{Binding ToggleVersionPickerCommand}">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding SelectedVersionTitle}"
-                                               FontSize="28"
-                                               FontWeight="SemiBold"
-                                               Foreground="{StaticResource OMLText}"
-                                               TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="{Binding SelectedVersion.IconUrl}"
+                                               Width="34"
+                                               Height="34"
+                                               Margin="0,0,10,0"
+                                               VerticalAlignment="Center"
+                                               RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                                        <TextBlock Text="{Binding SelectedVersionTitle}"
+                                                   FontSize="28"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource OMLText}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding SelectedVersionSubtitle}"
                                                FontSize="12"
                                                Foreground="{StaticResource OMLMuted}"
@@ -230,15 +242,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22"
-                                Background="{StaticResource OMLGreen}">
-                            <TextBlock Text="{Binding AccountInitial}"
-                                       Foreground="#0B0D0F"
-                                       FontSize="18"
-                                       FontWeight="Bold"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
-                        </Border>
+                        <Ellipse Grid.Column="0" Width="44" Height="44">
+                            <Ellipse.Fill>
+                                <ImageBrush ImageSource="{Binding SkinHead}" Stretch="UniformToFill" />
+                            </Ellipse.Fill>
+                        </Ellipse>
 
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding AccountName}" FontSize="14" FontWeight="SemiBold"
@@ -256,12 +264,13 @@
             <Border Grid.Row="2" Style="{StaticResource CardShell}">
                 <Border CornerRadius="8" Margin="12" Background="#171A1F">
                     <Grid>
-                        <Ellipse Width="120" Height="120" Fill="#232830" />
-                        <TextBlock Text="{Binding AccountInitial}"
-                                   FontSize="46"
-                                   Foreground="#3B424C"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                        <Image Source="{Binding SkinHead}"
+                               Width="160"
+                               Height="160"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="NearestNeighbor"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
                         <TextBlock Text="皮肤预览"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Bottom"

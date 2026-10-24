@@ -71,6 +71,10 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private string accountInitial = "?";
 
+    /// <summary>2D 皮肤头像；无皮肤/离线账号时为内置 Steve。</summary>
+    [ObservableProperty]
+    private System.Windows.Media.ImageSource? skinHead;
+
     public bool IsJavaSelected => CurrentPlatform == CurrentPlatform.Java;
 
     public bool IsBedrockSelected => CurrentPlatform == CurrentPlatform.Bedrock;
@@ -131,6 +135,33 @@ public partial class HomeViewModel : ObservableObject
             AuthTypes.Offline => "离线账号",
             _ => "点击登录",
         };
+
+        _ = RefreshSkinAsync();
+    }
+
+    /// <summary>下载（或读缓存）皮肤并裁出头部；失败回退 Steve。</summary>
+    public async Task RefreshSkinAsync()
+    {
+        var profile = _context.Config.UserProfile;
+
+        if (profile is null || string.IsNullOrWhiteSpace(profile.SkinUrl))
+        {
+            SkinHead = SkinImageLoader.SteveHead;
+            return;
+        }
+
+        try
+        {
+            var cacheRoot = System.IO.Path.GetDirectoryName(_context.ConfigPath) ?? _context.ConfigPath;
+            using var downloader = new OML.Core.Skins.SkinDownloader(cacheRoot);
+            var path = await downloader.GetSkinPathAsync(profile.SkinUrl, profile.Uuid);
+
+            DispatcherHelper.Run(() => SkinHead = SkinImageLoader.LoadHead(path));
+        }
+        catch
+        {
+            DispatcherHelper.Run(() => SkinHead = SkinImageLoader.SteveHead);
+        }
     }
 
     /// <summary>扫描本地版本（由 Shell 在初始化后调用）。</summary>

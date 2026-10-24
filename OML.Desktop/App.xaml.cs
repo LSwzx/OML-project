@@ -166,6 +166,45 @@ public partial class App : Application
 
         window.Show();
 
+        // 开发/自动化：把窗口内容离屏渲染成 PNG（不依赖桌面会话是否可见）。
+        var screenshotPath = ReadArgument(e.Args, "--screenshot");
+        if (!string.IsNullOrWhiteSpace(screenshotPath))
+        {
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                try
+                {
+                    if (window.Content is System.Windows.FrameworkElement root)
+                    {
+                        root.UpdateLayout();
+                        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                            Math.Max(1, (int)root.ActualWidth),
+                            Math.Max(1, (int)root.ActualHeight),
+                            96, 96,
+                            System.Windows.Media.PixelFormats.Pbgra32);
+                        bitmap.Render(root);
+
+                        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                        using var stream = File.Create(screenshotPath);
+                        encoder.Save(stream);
+                    }
+                }
+                catch
+                {
+                    // 截图失败不影响启动。
+                }
+
+                if (e.Args.Contains("--screenshot-exit"))
+                {
+                    Shutdown(0);
+                }
+            };
+            timer.Start();
+        }
+
         if (e.Args.Contains("--smoke"))
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
