@@ -183,7 +183,7 @@ public partial class SettingsViewModel : ObservableObject
         var selected = _context.Config.SelectedVersion;
         if (string.IsNullOrWhiteSpace(selected))
         {
-            MessageBox.Show("请先在安装页装一个版本，或到设置里指定游戏目录。", "OML", MessageBoxButton.OK, MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("OML", "请先在安装页装一个版本，或到设置里指定游戏目录。");
             return;
         }
 
@@ -201,11 +201,7 @@ public partial class SettingsViewModel : ObservableObject
 
         if (existing is not null)
         {
-            MessageBox.Show(
-                $"已检测到可用的 Java {required}+：\n{existing}\n\n无需下载。",
-                "Java 已就绪",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("Java 已就绪", $"已检测到可用的 Java {required}+：\n{existing}\n\n无需下载。");
             await ScanJavaAsync();
             return;
         }
@@ -233,16 +229,12 @@ public partial class SettingsViewModel : ObservableObject
         var ok = await task.Completed;
         if (ok)
         {
-            MessageBox.Show("Java 运行时下载完成，已写入设置。", "OML", MessageBoxButton.OK, MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("OML", "Java 运行时下载完成，已写入设置。");
             await ScanJavaAsync();
         }
         else
         {
-            MessageBox.Show(
-                task.WasCanceled ? "已取消 Java 下载。" : $"Java 下载失败：\n{task.Error}",
-                "OML",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("OML", task.WasCanceled ? "已取消 Java 下载。" : $"Java 下载失败：\n{task.Error}");
         }
     }
 
@@ -281,20 +273,12 @@ public partial class SettingsViewModel : ObservableObject
                 App.Shell?.AppVersion ?? "未知");
 
             StatusText = $"诊断报告已导出：{path}";
-            MessageBox.Show(
-                $"诊断报告已导出：\n{path}",
-                "导出完成",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("导出完成", $"诊断报告已导出：\n{path}");
         }
         catch (Exception ex)
         {
             StatusText = $"导出诊断报告失败：{ex.Message}";
-            MessageBox.Show(
-                $"导出诊断报告失败：\n{ex.Message}",
-                "导出失败",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("导出失败", $"导出诊断报告失败：\n{ex.Message}");
         }
     }
 
@@ -312,22 +296,16 @@ public partial class SettingsViewModel : ObservableObject
         switch (result.Status)
         {
             case UpdateCheckStatus.UpToDate:
-                MessageBox.Show(
-                    $"已是最新版（{App.Shell.Updates.CurrentVersion}）。",
-                    "检查更新",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("检查更新", $"已是最新版（{App.Shell.Updates.CurrentVersion}）。");
                 break;
 
             case UpdateCheckStatus.UpdateAvailable when result.Update is not null:
                 var version = result.Update.TargetFullRelease.Version;
-                var answer = MessageBox.Show(
-                    $"发现新版本 {version}（当前 {App.Shell.Updates.CurrentVersion}）。\n\n是否现在下载并在完成后重启？",
+                var confirmed = await OML.Desktop.Infrastructure.DialogService.Instance.ShowConfirmAsync(
                     "检查更新",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Information);
+                    $"发现新版本 {version}（当前 {App.Shell.Updates.CurrentVersion}）。\n\n是否现在下载并在完成后重启？");
 
-                if (answer == MessageBoxResult.Yes)
+                if (confirmed)
                 {
                     try
                     {
@@ -335,25 +313,19 @@ public partial class SettingsViewModel : ObservableObject
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"更新下载失败：\n{ex.Message}", "检查更新", MessageBoxButton.OK, MessageBoxImage.Error);
+                        await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync(
+                            "检查更新",
+                            $"更新下载失败：\n{ex.Message}");
                     }
                 }
                 break;
 
             case UpdateCheckStatus.NotInstalled:
-                MessageBox.Show(
-                    result.Error ?? "当前版本不是通过安装包安装的，无法检查更新。",
-                    "检查更新",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("检查更新", result.Error ?? "当前版本不是通过安装包安装的，无法检查更新。");
                 break;
 
             default:
-                MessageBox.Show(
-                    $"检查更新失败：\n{result.Error}",
-                    "检查更新",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("检查更新", $"检查更新失败：\n{result.Error}");
                 break;
         }
     }

@@ -167,18 +167,14 @@ public sealed partial class BackgroundTaskManager : ObservableObject
 
     /// <summary>展示当前任务的失败明细。</summary>
     [RelayCommand]
-    private void ShowFailureDetails()
+    private async Task ShowFailureDetailsAsync()
     {
         if (_failureDetails.Count == 0)
         {
             return;
         }
 
-        System.Windows.MessageBox.Show(
-            string.Join("\n\n", _failureDetails),
-            "下载失败详情",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Warning);
+        await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("下载失败详情", string.Join("\n\n", _failureDetails));
     }
 
     private void MarkActivity() => _lastActivityUtc = DateTime.UtcNow;

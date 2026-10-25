@@ -35,18 +35,36 @@
                 Background="#14351F"
                 Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
             <Grid>
-                <TextBlock Text="{Binding UpdateText}"
-                           FontSize="12"
-                           Foreground="{StaticResource OMLGreen}"
-                           VerticalAlignment="Center"
-                           Margin="0,0,220,0"
-                           TextTrimming="CharacterEllipsis" />
-                <ui:Button Content="后台下载并重启更新"
-                           Command="{Binding InstallUpdateCommand}"
-                           HorizontalAlignment="Right"
-                           Height="26"
-                           Padding="12,0"
-                           Appearance="Primary" />
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <TextBlock Text="{Binding UpdateText}"
+                               FontSize="12"
+                               Foreground="{StaticResource OMLGreen}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,220,0"
+                               TextTrimming="CharacterEllipsis" />
+                    <ui:Button Content="后台下载并重启更新"
+                               Command="{Binding InstallUpdateCommand}"
+                               HorizontalAlignment="Right"
+                               Height="26"
+                               Padding="12,0"
+                               Appearance="Primary" />
+                </Grid>
+
+                <ProgressBar Grid.Row="1"
+                             Height="3"
+                             Margin="0,6,0,0"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="{Binding UpdateProgress}"
+                             Foreground="{StaticResource OMLGreen}"
+                             Background="#1F4A2C"
+                             BorderThickness="0"
+                             Visibility="{Binding UpdateInProgress, Converter={StaticResource BoolToVis}}" />
             </Grid>
         </Border>
 
@@ -173,5 +191,10 @@
                              Value="{Binding Tasks.CurrentProgress}" />
             </StackPanel>
         </Border>
+<!-- 全局 ContentDialog 宿主：DialogService 用它显示深色弹窗 -->
+        <ui:ContentDialogHost x:Name="RootContentDialogHost"
+                              Grid.Row="0"
+                              Grid.RowSpan="4"
+                              Panel.ZIndex="1000" />
     </Grid>
 </ui:FluentWindow>

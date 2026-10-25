@@ -42,7 +42,7 @@ public partial class App : Application
         return "Local\\OML_" + Convert.ToHexString(hash)[..16];
     }
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         _singleInstanceMutex = new Mutex(
             initiallyOwned: true,
@@ -51,13 +51,9 @@ public partial class App : Application
 
         if (!isFirstInstance)
         {
-            MessageBox.Show(
-                "OML 已经在运行。\n\n" +
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("OML 已在运行", "OML 已经在运行。\n\n" +
                 "如果正在更新，请等待已打开的窗口完成更新；" +
-                "同时运行多个实例会导致更新失败。",
-                "OML 已在运行",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "同时运行多个实例会导致更新失败。");
             Shutdown();
             return;
         }
@@ -221,16 +217,20 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"初始化失败：{ex.Message}\n\n配置文件：{context.ConfigPath}",
-                    "OML",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("OML", $"初始化失败：{ex.Message}\n\n配置文件：{context.ConfigPath}");
                 Shutdown(1);
             }
         };
 
         window.Show();
+
+        // 开发/自动化：打开一个 ContentDialog，便于离屏检查深色弹窗样式。
+        if (e.Args.Contains("--dialog-test"))
+        {
+            _ = DialogService.Instance.ShowConfirmAsync(
+                "测试弹窗",
+                "这是一个使用 WPF-UI ContentDialog 渲染的深色弹窗。\n\n按钮、圆角与标题都会跟随主题。");
+        }
 
         // 开发/自动化：把窗口内容离屏渲染成 PNG（不依赖桌面会话是否可见）。
         var screenshotPath = ReadArgument(e.Args, "--screenshot");

@@ -164,11 +164,7 @@ public partial class HomeViewModel : ObservableObject
         var entitlement = await _bedrockService.Entitlements.CheckAsync(profile?.AccessToken);
         if (!entitlement.IsOwned)
         {
-            System.Windows.MessageBox.Show(
-                entitlement.Message,
-                "无法安装基岩版",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("无法安装基岩版", entitlement.Message);
             return;
         }
 
@@ -400,18 +396,16 @@ public partial class HomeViewModel : ObservableObject
 
     /// <summary>点击扫描摘要：列出被跳过版本的具体原因。</summary>
     [CommunityToolkit.Mvvm.Input.RelayCommand]
-    private void ShowScanIssues()
+    private async Task ShowScanIssuesAsync()
     {
         if (_scanIssues.Count == 0)
         {
             return;
         }
 
-        System.Windows.MessageBox.Show(
-            string.Join("\n\n", _scanIssues),
+        await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync(
             $"扫描详情：{_scanIssues.Count} 个版本被跳过",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Warning);
+            string.Join("\n\n", _scanIssues));
     }
 
     [CommunityToolkit.Mvvm.Input.RelayCommand]
@@ -427,22 +421,16 @@ public partial class HomeViewModel : ObservableObject
 
         if (_bedrockInstallation is null)
         {
-            System.Windows.MessageBox.Show(
-                "本机尚未安装基岩版。\n\n请点击主页的「基岩版」卡片下载并安装后再启动。",
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync(
                 "未安装基岩版",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+                "本机尚未安装基岩版。\n\n请点击主页的「基岩版」卡片下载并安装后再启动。");
             return;
         }
 
         var profile = _context.Config.UserProfile;
         if (!string.Equals(profile?.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase))
         {
-            System.Windows.MessageBox.Show(
-                "启动基岩版需要微软正版账号。\n\n请先在「账号」页登录微软账号。",
-                "需要微软账号",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("需要微软账号", "启动基岩版需要微软正版账号。\n\n请先在「账号」页登录微软账号。");
             return;
         }
 
@@ -453,11 +441,7 @@ public partial class HomeViewModel : ObservableObject
             var entitlement = await _bedrockService.Entitlements.CheckAsync(profile!.AccessToken);
             if (!entitlement.IsOwned)
             {
-                System.Windows.MessageBox.Show(
-                    entitlement.Message,
-                    "没有基岩版授权",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning);
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("没有基岩版授权", entitlement.Message);
                 StatusText = "未通过基岩版授权检查";
                 AppendLog($"[警告] {entitlement.Message}");
                 return;
@@ -471,11 +455,7 @@ public partial class HomeViewModel : ObservableObject
         {
             StatusText = "启动基岩版失败";
             AppendLog($"[错误] 启动基岩版失败：{ex.Message}");
-            System.Windows.MessageBox.Show(
-                ex.Message,
-                "启动基岩版失败",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("启动基岩版失败", ex.Message);
         }
         finally
         {
@@ -539,11 +519,7 @@ public partial class HomeViewModel : ObservableObject
             if (ex is InvalidOperationException &&
                 ex.Message.Contains("32 位", StringComparison.Ordinal))
             {
-                System.Windows.MessageBox.Show(
-                    ex.Message,
-                    "Java 架构与内存设置不匹配",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning);
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("Java 架构与内存设置不匹配", ex.Message);
             }
         }
         finally

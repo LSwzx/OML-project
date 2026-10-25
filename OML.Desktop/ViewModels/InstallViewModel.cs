@@ -223,11 +223,7 @@ public partial class InstallViewModel : ObservableObject
 
         if (InstallOptiFineOption && string.IsNullOrWhiteSpace(OptiFineJarPath))
         {
-            System.Windows.MessageBox.Show(
-                "已勾选 OptiFine，但还没有选择安装包。",
-                "OML",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowInfoAsync("OML", "已勾选 OptiFine，但还没有选择安装包。");
             return;
         }
 
@@ -396,23 +392,24 @@ public partial class InstallViewModel : ObservableObject
     public bool AutoConfirmAssets { get; set; }
 
     /// <summary>询问是否补全资源；返回 null 表示用户取消了安装。</summary>
-    private bool? AskInstallAssets()
+    private async Task<bool?> AskInstallAssetsAsync()
     {
         if (AutoConfirmAssets)
         {
             return _context.Config.CompleteAssets;
         }
 
-        var answer = System.Windows.MessageBox.Show(
-            "是否同时下载完整的游戏资源（推荐，约 800MB）？\n\n不下载也能启动，但可能缺音效、字体或语言文件。",
+        var answer = await OML.Desktop.Infrastructure.DialogService.Instance.ShowChoiceAsync(
             "安装选项",
-            System.Windows.MessageBoxButton.YesNoCancel,
-            System.Windows.MessageBoxImage.Question);
+            "是否同时下载完整的游戏资源（推荐，约 800MB）？\n\n不下载也能启动，但可能缺音效、字体或语言文件。",
+            primaryText: "是",
+            secondaryText: "否",
+            closeText: "取消");
 
         return answer switch
         {
-            System.Windows.MessageBoxResult.Yes => true,
-            System.Windows.MessageBoxResult.No => false,
+            DialogChoice.Primary => true,
+            DialogChoice.Secondary => false,
             _ => null,
         };
     }
@@ -471,15 +468,13 @@ public partial class InstallViewModel : ObservableObject
             {
                 StatusText = item.WasCanceled ? "OptiFine 安装已取消" : $"OptiFine 安装失败：{item.Error}";
 
-                System.Windows.MessageBox.Show(
+                await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync(
+                    "OptiFine 安装",
                     item.WasCanceled
                         ? "已取消 OptiFine 安装。"
                         : $"OptiFine 安装未完成：\n{item.Error}\n\n" +
                           "说明：OptiFine 官方安装器是图形界面，没有静默参数。\n" +
-                          "请在弹出的安装窗口里点击 Install，等它完成后关闭窗口，再重新导入一次。",
-                    "OptiFine",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning);
+                          "请在弹出的安装窗口里点击 Install，等它完成后关闭窗口，再重新导入一次。");
             }
         }
         finally
@@ -499,7 +494,7 @@ public partial class InstallViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var installAssets = AskInstallAssets();
+            var installAssets = await AskInstallAssetsAsync();
             if (installAssets is null)
             {
                 StatusText = "已取消安装";

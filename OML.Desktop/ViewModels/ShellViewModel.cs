@@ -78,6 +78,13 @@ public partial class ShellViewModel : ObservableObject
         UpdateAvailable = true;
     }
 
+    /// <summary>是否正在下载更新（提示条内显示进度条）。</summary>
+    [ObservableProperty]
+    private bool updateInProgress;
+
+    [ObservableProperty]
+    private double updateProgress;
+
     /// <summary>后台下载并重启到新版本。</summary>
     [RelayCommand]
     private async Task InstallUpdateAsync()
@@ -88,15 +95,25 @@ public partial class ShellViewModel : ObservableObject
         }
 
         UpdateText = "正在下载更新…";
+        UpdateInProgress = true;
+        UpdateProgress = 0;
+
         try
         {
             await Updates.DownloadAndRestartAsync(
                 _pendingUpdate,
-                percent => DispatcherHelper.Run(() => UpdateText = $"正在下载更新 {percent}%"),
+                percent => DispatcherHelper.Run(() =>
+                {
+                    UpdateProgress = percent;
+                    UpdateText = $"正在下载更新 {percent}%";
+                }),
                 status => DispatcherHelper.Run(() => UpdateText = status));
         }
         catch (Exception ex)
         {
+            UpdateInProgress = false;
+            UpdateProgress = 0;
+
             var friendly = ex switch
             {
                 UpdateIntegrityException => $"更新失败：{ex.Message}",
@@ -106,11 +123,7 @@ public partial class ShellViewModel : ObservableObject
             };
 
             UpdateText = friendly;
-            System.Windows.MessageBox.Show(
-                friendly,
-                "自动更新失败",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
+            await OML.Desktop.Infrastructure.DialogService.Instance.ShowErrorAsync("自动更新失败", friendly);
         }
     }
 

@@ -15,6 +15,9 @@ public partial class MainWindow : FluentWindow
 
         // NavigationView 默认没有页面提供者，必须注入后才能 Navigate(Type)。
         RootNavigation.SetPageProviderService(new NavigationPageProvider());
+
+        // 全局弹窗宿主：所有 DialogService 调用都挂到这里。
+        DialogService.Instance.SetHost(RootContentDialogHost);
     }
 
     /// <summary>按标签切页（供启动参数与导航栏共用）。</summary>
