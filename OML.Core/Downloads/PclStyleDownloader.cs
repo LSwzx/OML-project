@@ -98,9 +98,15 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new IOException($"读取超时（{_readTimeout.TotalSeconds:0} 秒无数据）");
+            throw new TimeoutException($"连接超时：{_readTimeout.TotalSeconds:0} 秒内没有收到任何数据。");
         }
     }
+
+    /// <summary>下载诊断日志（重试、最终失败）。</summary>
+    public Action<DownloadLogEntry>? Log { get; set; }
+
+    /// <summary>实时状态文案（连接服务器、重试进度），用于全局任务栏。</summary>
+    public Action<string>? Status { get; set; }
 
     /// <inheritdoc />
     public async Task DownloadAsync(
@@ -149,19 +155,33 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
             File.Delete(savePath);
         }
 
-        var total = task.ExpectedSize;
-        if (total <= 0)
+        try
         {
-            total = await ProbeContentLengthAsync(task.Url, cancellationToken).ConfigureAwait(false);
-        }
+            var total = task.ExpectedSize;
+            if (total <= 0)
+            {
+                ReportConnecting(task.Url);
+                total = await ProbeContentLengthAsync(task.Url, cancellationToken).ConfigureAwait(false);
+            }
 
-        if (total <= 0 || total <= _chunkThresholdBytes || _chunkCount <= 1)
-        {
-            await DownloadSingleStreamAsync(normalized, total, progress, cancellationToken).ConfigureAwait(false);
+            if (total <= 0 || total <= _chunkThresholdBytes || _chunkCount <= 1)
+            {
+                await DownloadSingleStreamAsync(normalized, total, progress, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await DownloadChunkedAsync(normalized, total, progress, cancellationToken).ConfigureAwait(false);
+            }
         }
-        else
+        catch (OperationCanceledException)
         {
-            await DownloadChunkedAsync(normalized, total, progress, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // 重试用尽：输出完整的失败上下文（原因 / 状态码 / 目标路径）。
+            LogFinalFailure(normalized, ex);
+            throw;
         }
     }
 
@@ -196,6 +216,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                     return;
                 }
 
+                ReportConnecting(task.Url);
                 using var request = CreateRequest(task.Url, existing);
                 using var response = await SendWithTimeoutAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -204,6 +225,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                 {
                     if (IsRetryableStatus(response.StatusCode) && attempt < _maxRetries)
                     {
+                        ReportRetry(task, attempt, $"返回 HTTP {(int)response.StatusCode} {response.ReasonPhrase}", (int)response.StatusCode);
                         await Task.Delay(RetryDelay(response, attempt), cancellationToken).ConfigureAwait(false);
                         continue;
                     }
@@ -268,9 +290,14 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                 {
                     throw;
                 }
+
+                ReportRetry(task, attempt, "文件校验失败（SHA-1 不匹配）");
+                await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception) when (attempt < _maxRetries)
+            catch (Exception ex) when (attempt < _maxRetries)
             {
+                var (reason, statusCode) = DescribeException(ex);
+                ReportRetry(task, attempt, reason, statusCode);
                 await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
             }
         }
@@ -386,6 +413,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
                 {
                     if (IsRetryableStatus(response.StatusCode) && attempt < _maxRetries)
                     {
+                        ReportRetry(url, chunk.PartPath, attempt, $"返回 HTTP {(int)response.StatusCode} {response.ReasonPhrase}", (int)response.StatusCode);
                         await Task.Delay(RetryDelay(response, attempt), cancellationToken).ConfigureAwait(false);
                         continue;
                     }
@@ -435,8 +463,10 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
             {
                 throw;
             }
-            catch (Exception) when (attempt < _maxRetries)
+            catch (Exception ex) when (attempt < _maxRetries)
             {
+                var (reason, statusCode) = DescribeException(ex);
+                ReportRetry(url, chunk.PartPath, attempt, reason, statusCode);
                 await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
             }
         }
@@ -567,7 +597,7 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new IOException($"等待响应超时（{_readTimeout.TotalSeconds:0} 秒）");
+            throw new TimeoutException($"连接超时：{_readTimeout.TotalSeconds:0} 秒内没有收到服务器响应。");
         }
     }
 
@@ -675,8 +705,63 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
         return false;
     }
 
+    /// <summary>记录一次重试：同时写日志与全局状态栏。</summary>
+    private void ReportRetry(DownloadTask task, int attempt, string reason, int? statusCode = null) =>
+        ReportRetry(task.Url, task.SavePath, attempt, reason, statusCode);
+
+    private void ReportRetry(string url, string savePath, int attempt, string reason, int? statusCode = null)
+    {
+        var current = attempt + 1;
+        Status?.Invoke($"正在重试下载 ({current}/{_maxRetries})… {Path.GetFileName(savePath)}");
+        Log?.Invoke(new DownloadLogEntry(
+            DownloadLogLevel.Warning,
+            $"[警告] 下载 {url} {reason}，正在进行第 {current}/{_maxRetries} 次重试…",
+            url,
+            savePath,
+            statusCode,
+            reason));
+    }
+
+    /// <summary>重试次数用尽后的详细错误。</summary>
+    private void LogFinalFailure(DownloadTask task, Exception ex)
+    {
+        var (reason, status) = DescribeException(ex);
+        var text =
+            $"[错误] 下载失败：{task.Url}\n" +
+            $"- 原因：{reason}\n" +
+            $"- 状态码：{(status is null ? "无" : status.ToString())}\n" +
+            $"- 目标路径：{task.SavePath}";
+
+        Log?.Invoke(new DownloadLogEntry(DownloadLogLevel.Error, text, task.Url, task.SavePath, status, reason));
+    }
+
+    private static (string Reason, int? StatusCode) DescribeException(Exception ex) => ex switch
+    {
+        TimeoutException timeout => (timeout.Message, null),
+        HttpRequestException http => ($"HTTP 请求失败：{http.Message}", http.StatusCode is { } code ? (int)code : null),
+        DownloadIntegrityException => ("文件校验失败（SHA-1 不匹配）", null),
+        IOException io => (io.Message, null),
+        _ => (ex.Message, null),
+    };
+
+    private void ReportConnecting(string url)
+    {
+        string name;
+        try
+        {
+            name = Path.GetFileName(new Uri(url).AbsolutePath);
+        }
+        catch
+        {
+            name = url;
+        }
+
+        Status?.Invoke($"正在连接服务器… {name}");
+    }
+
     private static TimeSpan Backoff(int attempt) =>
-        TimeSpan.FromMilliseconds(Math.Min(2000, 200 * Math.Pow(2, attempt)));
+        // 显式指数退避：2s → 4s → 8s（上限 30s），避免瞬间并发把镜像源打死。
+        TimeSpan.FromSeconds(Math.Min(30, 2 * Math.Pow(2, attempt)));
 
     /// <summary>值得重试的 HTTP 状态：限流、网关抖动、服务端临时故障。</summary>
     private static bool IsRetryableStatus(HttpStatusCode statusCode) => statusCode is
@@ -706,13 +791,8 @@ public sealed class PclStyleDownloader : IDownloadEngine, IDisposable
             return wait > TimeSpan.Zero ? Clamp(wait) + Jitter(attempt) : Jitter(attempt);
         }
 
-        // 429 单独给更长的基数：镜像站限流窗口通常以秒计，200ms 级别退避等于没退。
-        var baseDelay = response.StatusCode == HttpStatusCode.TooManyRequests
-            ? TimeSpan.FromSeconds(3)
-            : TimeSpan.FromMilliseconds(500);
-
-        return TimeSpan.FromMilliseconds(Math.Min(15_000, baseDelay.TotalMilliseconds * Math.Pow(2, attempt)))
-            + Jitter(attempt);
+        // 没有 Retry-After 时统一走指数退避：2s → 4s → 8s（上限 30s）。
+        return Backoff(attempt) + Jitter(attempt);
 
         static TimeSpan Clamp(TimeSpan value) =>
             value > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : value;

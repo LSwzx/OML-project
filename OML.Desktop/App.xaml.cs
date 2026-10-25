@@ -155,6 +155,24 @@ public partial class App : Application
                     shell.Home.LaunchCommand.Execute(null);
                 }
 
+                // 自动化/诊断：验证看门狗在进度停滞时能强制中断任务。
+                if (e.Args.Contains("--watchdog-test"))
+                {
+                    BackgroundTaskManager.Instance.Enqueue("看门狗测试", async (progress, ct) =>
+                    {
+                        BackgroundTaskManager.Instance.ArmWatchdog(TimeSpan.FromSeconds(5));
+                        progress.Report(0.1);
+                        await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                    });
+
+                    await Task.Delay(TimeSpan.FromSeconds(14));
+                    File.WriteAllText(
+                        Path.Combine(Path.GetTempPath(), "oml-watchdog.txt"),
+                        BackgroundTaskManager.Instance.CurrentTaskText);
+                    Application.Current.Shutdown();
+                    return;
+                }
+
                 // 自动化/诊断：立刻检查并安装更新（若有），用于本地更新链路验证。
                 if (e.Args.Contains("--update-now"))
                 {

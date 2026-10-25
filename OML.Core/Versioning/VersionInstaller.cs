@@ -76,7 +76,9 @@ public sealed class VersionInstaller : IDisposable
         string versionId,
         InstallOptions? options = null,
         IProgress<LaunchProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<DownloadLogEntry>? downloadLog = null,
+        Action<string>? status = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(versionId);
@@ -115,6 +117,12 @@ public sealed class VersionInstaller : IDisposable
         var resolution = new LibraryResolver(_gameDirectory, RuleEvaluator.ForCurrentPlatform()).Resolve(version);
 
         var engine = _injectedEngine ?? new PclStyleDownloader(_http);
+        if (engine is PclStyleDownloader pcl)
+        {
+            pcl.Log = downloadLog;
+            pcl.Status = status;
+        }
+
         var concurrency = Math.Max(1, options.MaxConcurrency);
 
         try
@@ -131,10 +139,8 @@ public sealed class VersionInstaller : IDisposable
 
             if (!libraryResult.AllSucceeded)
             {
-                var first = libraryResult.Failures[0];
-                throw new InvalidOperationException(
-                    $"依赖库下载失败 {libraryResult.FailedCount}/{libraryResult.Total} 个：{Path.GetFileName(first.Task.SavePath)} — {first.Error.Message}",
-                    first.Error);
+                // 携带完整失败清单：全局任务栏据此显示"N 个文件下载失败"，UI 可弹窗展示。
+                throw new DownloadBatchException(libraryResult.Failures);
             }
 
             await EnsureClientJarAsync(version, engine, progress, cancellationToken).ConfigureAwait(false);

@@ -247,6 +247,7 @@ public partial class InstallViewModel : ObservableObject
 
             var item = BackgroundTaskManager.Instance.Enqueue($"安装 {versionId}", async (progress, ct) =>
             {
+                BackgroundTaskManager.Instance.ArmWatchdog(TimeSpan.FromSeconds(60));
                 using var installer = new VersionInstaller(game);
                 var report = new Progress<LaunchProgress>(p =>
                 {
@@ -263,7 +264,9 @@ public partial class InstallViewModel : ObservableObject
                         MaxConcurrency = 8,
                     },
                     report,
-                    ct);
+                    ct,
+                    downloadLog: entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                    status: message => BackgroundTaskManager.Instance.ReportStatus(message));
 
                 if (fabric)
                 {
@@ -543,6 +546,7 @@ public partial class InstallViewModel : ObservableObject
             var game = _context.CreateGameDirectory();
             var item = BackgroundTaskManager.Instance.Enqueue($"安装 {versionId}", async (progress, ct) =>
             {
+                BackgroundTaskManager.Instance.ArmWatchdog(TimeSpan.FromSeconds(60));
                 using var installer = new VersionInstaller(game);
 
                 var report = new Progress<LaunchProgress>(p =>
@@ -564,7 +568,9 @@ public partial class InstallViewModel : ObservableObject
                         MaxConcurrency = 8,
                     },
                     report,
-                    ct);
+                    ct,
+                    downloadLog: entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                    status: message => BackgroundTaskManager.Instance.ReportStatus(message));
 
                 DispatcherHelper.Run(() =>
                 {

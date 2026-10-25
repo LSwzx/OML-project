@@ -122,6 +122,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
@@ -141,18 +142,23 @@
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <ui:Button Grid.Column="1" Content="取消"
+                    <ui:Button Grid.Column="1" Content="查看详情"
+                               Command="{Binding Tasks.ShowFailureDetailsCommand}"
+                               Height="24" Padding="10,0" Margin="8,0,0,0"
+                               Visibility="{Binding Tasks.HasFailureDetails, Converter={StaticResource BoolToVis}}" />
+
+                    <ui:Button Grid.Column="2" Content="取消"
                                Command="{Binding Tasks.CancelCommand}"
                                Height="24" Padding="10,0" Margin="8,0,0,0"
                                Visibility="{Binding Tasks.CanCancel, Converter={StaticResource BoolToVis}}" />
 
-                    <ui:Button Grid.Column="2" Content="重试"
+                    <ui:Button Grid.Column="3" Content="重试"
                                Command="{Binding Tasks.RetryCommand}"
                                Height="24" Padding="10,0" Margin="8,0,0,0"
                                Appearance="Primary"
                                Visibility="{Binding Tasks.HasFailed, Converter={StaticResource BoolToVis}}" />
 
-                    <TextBlock Grid.Column="3"
+                    <TextBlock Grid.Column="4"
                                Text="{Binding Tasks.PendingCount, StringFormat=队列 {0}}"
                                FontSize="11"
                                Opacity="0.5"

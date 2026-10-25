@@ -32,6 +32,11 @@ public partial class HomeViewModel : ObservableObject
         _session = new LaunchSession(launcherRoot: System.IO.Path.GetDirectoryName(context.ConfigPath));
         _session.LogReceived += OnGameLog;
 
+        // 下载重试/失败日志统一进日志面板；实时状态进全局任务栏。
+        BackgroundTaskManager.Instance.LogReceived += AppendLog;
+        _session.DownloadLog = entry => BackgroundTaskManager.Instance.ReportLog(entry.Message);
+        _session.DownloadStatus = message => BackgroundTaskManager.Instance.ReportStatus(message);
+
         _logTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         _logTimer.Tick += (_, _) => FlushLogs();
         _logTimer.Start();

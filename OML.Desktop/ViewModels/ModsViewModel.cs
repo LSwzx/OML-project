@@ -313,6 +313,7 @@ public partial class ModsViewModel : ObservableObject
 
             var task = BackgroundTaskManager.Instance.Enqueue(title, async (progress, ct) =>
             {
+                BackgroundTaskManager.Instance.ArmWatchdog(TimeSpan.FromSeconds(60));
                 Directory.CreateDirectory(targetDirectory);
 
                 for (var i = 0; i < downloads.Count; i++)
@@ -325,7 +326,11 @@ public partial class ModsViewModel : ObservableObject
 
                     DispatcherHelper.Run(() => StatusText = $"正在下载 {label}（{index + 1}/{downloads.Count}）…");
 
-                    using var downloader = new PclStyleDownloader();
+                    using var downloader = new PclStyleDownloader
+                {
+                    Log = entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                    Status = message => BackgroundTaskManager.Instance.ReportStatus(message),
+                };
                     await downloader.DownloadAsync(
                         new DownloadTask { Url = url, SavePath = savePath, ExpectedSize = size, Sha1 = sha1 },
                         new Progress<double>(v =>
@@ -436,13 +441,18 @@ public partial class ModsViewModel : ObservableObject
 
             var task = BackgroundTaskManager.Instance.Enqueue($"安装整合包 {displayName}", async (progress, ct) =>
             {
+                BackgroundTaskManager.Instance.ArmWatchdog(TimeSpan.FromSeconds(60));
                 try
                 {
                     Directory.CreateDirectory(workDirectory);
                     var archivePath = Path.Combine(workDirectory, "pack.zip");
 
                     DispatcherHelper.Run(() => StatusText = "下载整合包…");
-                    using (var downloader = new PclStyleDownloader())
+                    using (var downloader = new PclStyleDownloader
+                    {
+                        Log = entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                        Status = message => BackgroundTaskManager.Instance.ReportStatus(message),
+                    })
                     {
                         await downloader.DownloadAsync(
                             new DownloadTask { Url = file.Url, SavePath = archivePath, ExpectedSize = file.Size, Sha1 = file.Hashes.Sha1 },
@@ -512,7 +522,11 @@ public partial class ModsViewModel : ObservableObject
 
                         DispatcherHelper.Run(() => StatusText = $"下载整合包文件 {i + 1}/{index.Files.Count}：{Path.GetFileName(entry.Path)}");
 
-                        using var downloader = new PclStyleDownloader();
+                        using var downloader = new PclStyleDownloader
+                {
+                    Log = entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                    Status = message => BackgroundTaskManager.Instance.ReportStatus(message),
+                };
                         await downloader.DownloadAsync(
                             new DownloadTask
                             {
@@ -597,7 +611,9 @@ public partial class ModsViewModel : ObservableObject
                 minecraft,
                 new InstallOptions { InstallAssets = _context.Config.CompleteAssets, EnsureJava = false, MaxConcurrency = 8 },
                 new Progress<LaunchProgress>(p => progress.Report(0.2 + p.Percent / 300)),
-                ct);
+                ct,
+                downloadLog: entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                status: message => BackgroundTaskManager.Instance.ReportStatus(message));
         }
 
         DispatcherHelper.Run(() => StatusText = $"安装加载器 {index.Loader} {index.LoaderVersion}…");

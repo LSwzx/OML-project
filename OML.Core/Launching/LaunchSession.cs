@@ -43,6 +43,12 @@ public sealed class LaunchSession : IDisposable
     /// <summary>游戏日志行（stdout + stderr），供 UI 追加到控制台。</summary>
     public event Action<string>? LogReceived;
 
+    /// <summary>下载重试/失败的诊断日志（供 UI 日志面板）。</summary>
+    public Action<DownloadLogEntry>? DownloadLog { get; set; }
+
+    /// <summary>下载实时状态（"正在重试下载…"），供全局状态栏。</summary>
+    public Action<string>? DownloadStatus { get; set; }
+
     /// <summary>最近一次启动使用的参数（用于"显示命令行"或排障）。</summary>
     public LaunchArguments? LastArguments { get; private set; }
 
@@ -80,6 +86,12 @@ public sealed class LaunchSession : IDisposable
 
         using var repository = new VersionRepository(game, _http);
         var engine = _downloadEngine ?? new PclStyleDownloader(_http);
+        if (engine is PclStyleDownloader pcl)
+        {
+            pcl.Log = DownloadLog;
+            pcl.Status = DownloadStatus;
+        }
+
         var concurrency = Math.Max(1, config.MaxDownloadConcurrency);
 
         try

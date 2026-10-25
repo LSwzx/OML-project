@@ -77,6 +77,34 @@ if (args.Length >= 2 && args[0] == "--scan")
     return scan.Issues.Count == 0 ? 0 : 0;
 }
 
+// 诊断：下载单个 URL，打印重试/失败日志与状态。
+if (args.Length >= 2 && args[0] == "--download")
+{
+    var url = args[1];
+    Console.WriteLine($"下载 {url}");
+
+    using var downloader = new OML.Core.Downloads.PclStyleDownloader(
+        maxRetries: 2,
+        chunkCount: 1,
+        readTimeout: TimeSpan.FromSeconds(3));
+
+    downloader.Log = entry => Console.WriteLine($"[{entry.Level}] {entry.Message}");
+    downloader.Status = message => Console.WriteLine($"[status] {message}");
+
+    var path = Path.Combine(Path.GetTempPath(), "oml-download-test.bin");
+    try
+    {
+        await downloader.DownloadAsync(new OML.Abstractions.Downloads.DownloadTask { Url = url, SavePath = path });
+        Console.WriteLine("下载成功");
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"最终失败：{ex.GetType().Name}: {ex.Message}");
+        return 1;
+    }
+}
+
 RunAbstractionChecks();
 
 // PCL2 之类的第三方启动器会往版本 JSON 里塞注释、尾逗号、扩展字段，
