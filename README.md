@@ -6,6 +6,8 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-1BD96A)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/LSwzx/OML_test?label=release&color=1BD96A)](https://github.com/LSwzx/OML_test/releases)
 
+**语言 / Languages:** **简体中文** · [繁體中文](docs/readme/README.zh-TW.md) · [简体文言](docs/readme/README.zh-classical.md) · [繁體文言](docs/readme/README.zh-classical-t.md) · [English (US)](docs/readme/README.en-US.md) · [English (UK)](docs/readme/README.en-GB.md) · [Français](docs/readme/README.fr.md) · [Deutsch](docs/readme/README.de.md) · [Русский](docs/readme/README.ru.md)
+
 OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器：支持原版、Forge、Fabric、NeoForge、OptiFine 与整合包安装，
 内置 Modrinth 资源搜索、自动补全 Java、损坏版本修复、Velopack 自动更新和可选的版本隔离。
 
