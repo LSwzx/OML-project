@@ -311,6 +311,20 @@ public partial class InstallViewModel : ObservableObject
     /// <summary>运行 OptiFine 安装器并检查是否生成了新版本。</summary>
     private async Task RunOptiFineAsync(string jarPath, CancellationToken cancellationToken)
     {
+        var created = await RunOptiFineInstallerAsync(jarPath, cancellationToken);
+        if (created.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "没有检测到新版本：OptiFine 安装器是图形界面，需要在弹出的窗口里点 Install 再关闭。");
+        }
+    }
+
+    /// <summary>
+    /// 运行 OptiFine 安装器 jar（图形界面），等待退出并返回它新生成的版本 ID。
+    /// <para>取消时杀掉整个进程树再抛出。</para>
+    /// </summary>
+    private async Task<string[]> RunOptiFineInstallerAsync(string jarPath, CancellationToken cancellationToken)
+    {
         var game = _context.CreateGameDirectory();
 
         var before = Directory.Exists(game.VersionsDirectory)
@@ -351,18 +365,13 @@ public partial class InstallViewModel : ObservableObject
             throw;
         }
 
-        var created = Directory.Exists(game.VersionsDirectory)
+        return Directory.Exists(game.VersionsDirectory)
             ? Directory.EnumerateDirectories(game.VersionsDirectory)
                 .Select(Path.GetFileName)
                 .Where(id => id is not null && !before.Contains(id))
+                .Select(id => id!)
                 .ToArray()
-            : Array.Empty<string?>();
-
-        if (created.Length == 0)
-        {
-            throw new InvalidOperationException(
-                "没有检测到新版本：OptiFine 安装器是图形界面，需要在弹出的窗口里点 Install 再关闭。");
-        }
+            : Array.Empty<string>();
     }
 
     [RelayCommand]
@@ -437,64 +446,18 @@ public partial class InstallViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var game = _context.CreateGameDirectory();
-
             var item = BackgroundTaskManager.Instance.Enqueue("安装 OptiFine", async (progress, ct) =>
             {
-                var before = Directory.Exists(game.VersionsDirectory)
-                    ? Directory.EnumerateDirectories(game.VersionsDirectory).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase)
-                    : new HashSet<string?>();
-
                 DispatcherHelper.Run(() => StatusText = "启动 OptiFine 安装器…");
 
-                var javaPath = await new JavaScanner().FindSuitableJavaAsync(8, ct)
-                    ?? throw new InvalidOperationException("没有检测到可运行 OptiFine 安装器的 Java。");
-
-                var arguments = new LaunchArguments
-                {
-                    JavaPath = javaPath,
-                    WorkingDirectory = game.Root,
-                    Arguments = new[] { "-jar", jarPath },
-                };
-
-                using var launcher = new JvmLauncher(Path.Combine(game.Root, "logs", "optifine"));
-                using var process = await launcher.LaunchAsync(arguments, ct);
-
-                try
-                {
-                    await process.WaitForExitAsync(ct);
-                }
-                catch (OperationCanceledException)
-                {
-                    try
-                    {
-                        if (!process.HasExited)
-                        {
-                            process.Kill(entireProcessTree: true);
-                        }
-                    }
-                    catch
-                    {
-                        // 已退出。
-                    }
-
-                    throw;
-                }
-
-                var created = Directory.Exists(game.VersionsDirectory)
-                    ? Directory.EnumerateDirectories(game.VersionsDirectory)
-                        .Select(Path.GetFileName)
-                        .Where(id => id is not null && !before.Contains(id))
-                        .ToArray()
-                    : Array.Empty<string?>();
-
+                var created = await RunOptiFineInstallerAsync(jarPath, ct);
                 if (created.Length == 0)
                 {
                     throw new InvalidOperationException(
                         "没有检测到新版本：OptiFine 安装器是图形界面，需要在弹出的窗口里点 Install 再关闭，然后重试。");
                 }
 
-                var versionId = created[0]!;
+                var versionId = created[0];
                 DispatcherHelper.Run(() =>
                 {
                     StatusText = $"OptiFine 安装完成：{versionId}";

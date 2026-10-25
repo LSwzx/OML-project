@@ -66,15 +66,6 @@ public sealed class MirrorSpeedTester : IDisposable
             .ToArray();
     }
 
-    /// <summary>返回最快可达的 URL；全部不可达时返回 <c>null</c>。永不抛异常。</summary>
-    public async Task<string?> GetFastestUrlAsync(
-        IEnumerable<string> urls,
-        CancellationToken cancellationToken = default)
-    {
-        var results = await MeasureAsync(urls, cancellationToken).ConfigureAwait(false);
-        return results.FirstOrDefault(r => r.Reachable)?.Url;
-    }
-
     private async Task<MirrorLatency> ProbeAsync(string url, CancellationToken cancellationToken)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

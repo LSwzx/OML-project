@@ -4,6 +4,7 @@ using OML.Abstractions.Downloads;
 using OML.Abstractions.Models;
 using OML.Core.Downloads;
 using OML.Core.Serialization;
+using OML.Core.IO;
 
 namespace OML.Core.Versioning;
 
@@ -92,34 +93,6 @@ public sealed class VersionRepository : IDisposable
         }
     }
 
-    /// <summary>获取最新正式版版本号（<c>latest.release</c>）。</summary>
-    public async Task<string> GetLatestReleaseAsync(CancellationToken cancellationToken = default)
-    {
-        var manifest = await GetManifestAsync(false, cancellationToken).ConfigureAwait(false);
-        var release = manifest.Latest?.Release;
-
-        if (string.IsNullOrWhiteSpace(release))
-        {
-            throw new InvalidDataException("版本清单缺少 latest.release 字段。");
-        }
-
-        return release;
-    }
-
-    /// <summary>获取最新快照版本号（<c>latest.snapshot</c>）。</summary>
-    public async Task<string> GetLatestSnapshotAsync(CancellationToken cancellationToken = default)
-    {
-        var manifest = await GetManifestAsync(false, cancellationToken).ConfigureAwait(false);
-        var snapshot = manifest.Latest?.Snapshot;
-
-        if (string.IsNullOrWhiteSpace(snapshot))
-        {
-            throw new InvalidDataException("版本清单缺少 latest.snapshot 字段。");
-        }
-
-        return snapshot;
-    }
-
     /// <summary>
     /// 获取单个版本的详情（<c>versions/&lt;id&gt;/&lt;id&gt;.json</c>），命中缓存则不联网。
     /// </summary>
@@ -152,7 +125,7 @@ public sealed class VersionRepository : IDisposable
 
         if (remoteJson is not null)
         {
-            await WriteAtomicAsync(jsonPath, remoteJson, cancellationToken).ConfigureAwait(false);
+            await AtomicFile.WriteAllTextAsync(jsonPath, remoteJson, cancellationToken).ConfigureAwait(false);
             return Deserialize<VersionDetail>(remoteJson, jsonPath);
         }
 
@@ -233,7 +206,7 @@ public sealed class VersionRepository : IDisposable
         {
             var url = await ResolveUrlAsync(OfficialManifestUrl, cancellationToken).ConfigureAwait(false);
             var json = await FetchStringAsync(url, cancellationToken).ConfigureAwait(false);
-            await WriteAtomicAsync(path, json, cancellationToken).ConfigureAwait(false);
+            await AtomicFile.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
             return json;
         }
         catch (Exception ex) when (!IsCallerCancellation(ex, cancellationToken) && File.Exists(path))
@@ -312,20 +285,6 @@ public sealed class VersionRepository : IDisposable
     /// </summary>
     private static bool IsCallerCancellation(Exception exception, CancellationToken cancellationToken) =>
         exception is OperationCanceledException && cancellationToken.IsCancellationRequested;
-
-    private static async Task WriteAtomicAsync(string path, string content, CancellationToken cancellationToken)
-    {
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        // 先写临时文件再替换：崩溃/断电时不会留下半截 JSON 把缓存永久污染。
-        var tempPath = path + ".tmp";
-        await File.WriteAllTextAsync(tempPath, content, cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, path, overwrite: true);
-    }
 
     private static string NormalizeId(string versionId)
     {

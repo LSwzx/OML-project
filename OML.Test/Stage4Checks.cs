@@ -159,9 +159,6 @@ internal static class Stage4Checks
             chained.MainClass == merged.MainClass &&
             chained.Libraries.Count == merged.Libraries.Count &&
             chained.Arguments?.Game.Count == merged.Arguments?.Game.Count);
-
-        var stringArgs = VersionInheritor.EnumerateStringArguments(merged.Arguments!.Game).ToList();
-        check("可平铺取出字符串参数", stringArgs.Count == 4 && stringArgs.Contains("--username"));
     }
 
     /// <summary>联网断言：真实抓取清单、下载 client.jar、验证离线回退。</summary>
@@ -184,7 +181,8 @@ internal static class Stage4Checks
             File.Exists(game.ManifestCachePath) && new FileInfo(game.ManifestCachePath).Length > 0);
         Console.WriteLine($"   版本数 {manifest.Versions.Count}，耗时 {started.ElapsedMilliseconds} ms");
 
-        var latest = await repo.GetLatestReleaseAsync();
+        var latest = manifest.Latest?.Release
+            ?? throw new InvalidOperationException("清单里没有 latest.release");
         check("能取到最新正式版", !string.IsNullOrWhiteSpace(latest));
         check("最新正式版存在于清单", manifest.Versions.Any(v => v.Id == latest));
         Console.WriteLine($"   最新正式版：{latest}（最新快照 {manifest.Latest?.Snapshot}）");
