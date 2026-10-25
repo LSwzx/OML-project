@@ -99,6 +99,13 @@ Compress-Archive publish\* OML-win-1.1.2-Portable.zip
 - 光影下载到 `shaderpacks/`，整合包解析 `.mrpack` 后自动安装对应版本与加载器
 - 整合包写入 `instance.json`，主页显示真实名称与图标（图标本地缓存，断网可用）
 
+### 基岩版
+
+- 通过 Microsoft Store 解析最新正式版 / Preview 安装包，复用现有下载引擎多线程下载
+- 调用 `Add-AppxPackage` 静默安装主包与依赖（VCLibs 等），无需管理员权限
+- 启动前向 `entitlements/mcstore` 校验 `product_minecraft_bedrock`，未购买会明确提示
+- 通过 `shell:appsFolder\<PackageFamilyName>!App` 激活游戏，主页卡片显示本地已装版本
+- 未安装时点击卡片即开始下载与安装，进度进入全局任务栏
 ### 3D 皮肤预览
 
 使用 [WPF-Minecraft-Skin-Viewer](https://github.com/mokkignomov-design/WPF-Minecraft-Skin-Viewer)
@@ -217,7 +224,7 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 ## 已知限制
 
 - 微软正版登录等待 Mojang 应用白名单审核，暂未开放
-- 基岩版仅有入口占位，尚未接入运行时
+- 基岩版需要微软正版账号与授权，安装包约 1GB
 - Forge 启动依赖完整资源，建议安装时补全资源文件
 - OptiFine 官方安装器没有静默参数，只能通过导入方式启动图形安装
 

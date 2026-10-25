@@ -186,7 +186,7 @@
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource OMLText}"
                                        TextWrapping="Wrap" />
-                            <TextBlock Text="点击卡片切换到基岩版"
+                            <TextBlock Text="{Binding BedrockHintText}"
                                        FontSize="11"
                                        Foreground="{StaticResource OMLMuted}"
                                        Margin="0,6,0,0" />

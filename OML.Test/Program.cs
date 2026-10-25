@@ -105,6 +105,50 @@ if (args.Length >= 2 && args[0] == "--download")
     }
 }
 
+// 诊断：探测本机已安装的基岩版（PowerShell / Get-AppxPackage）。
+if (args.Contains("--bedrock"))
+{
+    var locator = new OML.Core.Bedrock.BedrockPackageLocator();
+    var installed = await locator.GetInstalledAsync();
+
+    if (installed.Count == 0)
+    {
+        Console.WriteLine("未安装基岩版");
+        return 0;
+    }
+
+    foreach (var item in installed)
+    {
+        Console.WriteLine($"{item.Name} {item.Version}  AUMID={item.AppUserModelId}");
+    }
+
+    return 0;
+}
+
+// 诊断：解析 Microsoft Store 的基岩版安装包列表（不下载）。
+if (args.Contains("--bedrock-store"))
+{
+    using var store = new OML.Core.Bedrock.BedrockStoreClient();
+    foreach (var channel in new[] { OML.Core.Bedrock.BedrockChannel.Release, OML.Core.Bedrock.BedrockChannel.Preview })
+    {
+        try
+        {
+            var files = await store.GetPackageFilesAsync(channel);
+            Console.WriteLine($"[{channel}] {files.Count} 个文件");
+            foreach (var file in files)
+            {
+                Console.WriteLine($"  {(file.IsMain ? "MAIN" : "DEP ")} {file.Name}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{channel}] 失败：{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    return 0;
+}
+
 RunAbstractionChecks();
 
 // PCL2 之类的第三方启动器会往版本 JSON 里塞注释、尾逗号、扩展字段，
@@ -174,6 +218,54 @@ RunAbstractionChecks();
     {
         try { System.IO.Directory.Delete(tempRoot, recursive: true); } catch { }
     }
+}
+
+// 基岩版：安装包分类与授权解析（不联网、不安装）。
+{
+    var main = new OML.Core.Bedrock.BedrockDownloadFile(
+        "Microsoft.MinecraftUWP_1.21.90.3_x64__8wekyb3d8bbwe.msix",
+        "https://example.com/main.msix");
+    var vclibs = new OML.Core.Bedrock.BedrockDownloadFile(
+        "Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x64__8wekyb3d8bbwe.appx",
+        "https://example.com/vclibs.appx");
+    var uiXaml = new OML.Core.Bedrock.BedrockDownloadFile(
+        "Microsoft.UI.Xaml.2.8_8.2310.30001.0_x64__8wekyb3d8bbwe.appx",
+        "https://example.com/uixaml.appx");
+    var unrelated = new OML.Core.Bedrock.BedrockDownloadFile(
+        "SomeOther.Package_1.0.0.0_x64__abc.appx",
+        "https://example.com/other.appx");
+
+    Check("基岩版安装包分类：主包 / 依赖 / 无关包",
+        main.IsMain && !main.IsDependency &&
+        vclibs.IsDependency && !vclibs.IsMain &&
+        uiXaml.IsDependency &&
+        !unrelated.IsMain && !unrelated.IsDependency);
+
+    var installation = new OML.Core.Bedrock.BedrockInstallation(
+        "Microsoft.MinecraftUWP", "1.21.90.3",
+        "Microsoft.MinecraftUWP_8wekyb3d8bbwe", @"C:\Program Files\WindowsApps\x");
+    Check("基岩版 AUMID 由包族名构成",
+        installation.AppUserModelId == "Microsoft.MinecraftUWP_8wekyb3d8bbwe!App" &&
+        !installation.IsPreview);
+
+    using var ownedHttp = new HttpClient(new StubJsonHandler(
+        """{"items":[{"name":"product_minecraft_bedrock","signature":"x"}]}"""));
+    var owned = await new OML.Core.Bedrock.BedrockEntitlementService(ownedHttp)
+        .CheckAsync("token");
+    Check("基岩版授权：包含 product_minecraft_bedrock 判为已拥有",
+        owned.Status == OML.Core.Bedrock.BedrockEntitlementStatus.Owned);
+
+    using var notOwnedHttp = new HttpClient(new StubJsonHandler(
+        """{"items":[{"name":"product_minecraft_java"}]}"""));
+    var notOwned = await new OML.Core.Bedrock.BedrockEntitlementService(notOwnedHttp)
+        .CheckAsync("token");
+    Check("基岩版授权：不含基岩版条目判为未购买",
+        notOwned.Status == OML.Core.Bedrock.BedrockEntitlementStatus.NotOwned);
+
+    var anonymous = await new OML.Core.Bedrock.BedrockEntitlementService()
+        .CheckAsync(null);
+    Check("基岩版授权：无令牌时提示先登录",
+        anonymous.Status == OML.Core.Bedrock.BedrockEntitlementStatus.NotSignedIn);
 }
 
 Stage4Checks.RunLocal(Check);
@@ -716,4 +808,16 @@ internal sealed class SyncProgress : IProgress<double>
             return new List<double>(_values);
         }
     }
+}
+
+/// <summary>返回固定 JSON 的 HttpMessageHandler，用于授权解析测试。</summary>
+internal sealed class StubJsonHandler(string json) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+        });
 }

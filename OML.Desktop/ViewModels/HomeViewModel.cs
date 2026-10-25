@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using OML.Abstractions.Auth;
 using OML.Abstractions.Launching;
 using OML.Core.Auth;
+using OML.Core.Bedrock;
 using OML.Core.Launching;
 using OML.Core.Versioning;
 using OML.Desktop.Infrastructure;
@@ -20,6 +21,7 @@ public partial class HomeViewModel : ObservableObject
 
     private readonly LauncherContext _context;
     private readonly LaunchSession _session;
+    private readonly BedrockService _bedrockService;
     private readonly System.Text.StringBuilder _pendingLogs = new();
     private readonly object _logGate = new();
     private readonly System.Windows.Threading.DispatcherTimer _logTimer;
@@ -31,6 +33,12 @@ public partial class HomeViewModel : ObservableObject
         // 自动下载 Java 需要启动器根目录（runtimes/ 放在这里）。
         _session = new LaunchSession(launcherRoot: System.IO.Path.GetDirectoryName(context.ConfigPath));
         _session.LogReceived += OnGameLog;
+
+        // 基岩版缓存也放在启动器根目录下（bedrock/）。
+        _bedrockService = new BedrockService(
+            System.IO.Path.GetDirectoryName(context.ConfigPath)
+            ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        _ = RefreshBedrockAsync();
 
         // 下载重试/失败日志统一进日志面板；实时状态进全局任务栏。
         BackgroundTaskManager.Instance.LogReceived += AppendLog;
@@ -68,6 +76,12 @@ public partial class HomeViewModel : ObservableObject
 
     [ObservableProperty]
     private string bedrockVersionText = "未安装基岩版，点此下载";
+
+    [ObservableProperty]
+    private bool isBedrockInstalled;
+
+    [ObservableProperty]
+    private string bedrockHintText = "点击下载并安装基岩版";
 
     [ObservableProperty]
     private string accountName = "未登录";
@@ -124,8 +138,122 @@ public partial class HomeViewModel : ObservableObject
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void SelectJava() => CurrentPlatform = CurrentPlatform.Java;
 
+    /// <summary>点击基岩版卡片：未安装则下载并安装，已安装则切换平台。</summary>
     [CommunityToolkit.Mvvm.Input.RelayCommand]
-    private void SelectBedrock() => CurrentPlatform = CurrentPlatform.Bedrock;
+    private async Task SelectBedrockAsync()
+    {
+        if (_bedrockInstallation is null)
+        {
+            await InstallBedrockAsync();
+            return;
+        }
+
+        CurrentPlatform = CurrentPlatform.Bedrock;
+    }
+
+    private BedrockInstallation? _bedrockInstallation;
+
+    private async Task InstallBedrockAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var profile = _context.Config.UserProfile;
+        var entitlement = await _bedrockService.Entitlements.CheckAsync(profile?.AccessToken);
+        if (!entitlement.IsOwned)
+        {
+            System.Windows.MessageBox.Show(
+                entitlement.Message,
+                "无法安装基岩版",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        IsBusy = true;
+        StatusText = "准备安装基岩版…";
+        ProgressValue = 0;
+
+        try
+        {
+            var item = BackgroundTaskManager.Instance.Enqueue("安装基岩版", async (progress, ct) =>
+            {
+                // 下载动辄 1GB，安装阶段也可能长时间无进度，看门狗给足 10 分钟。
+                BackgroundTaskManager.Instance.ArmWatchdog(TimeSpan.FromMinutes(10));
+
+                var result = await _bedrockService.InstallLatestAsync(
+                    BedrockChannel.Release,
+                    progress,
+                    log: entry => BackgroundTaskManager.Instance.ReportLog(entry.Message),
+                    status: message => BackgroundTaskManager.Instance.ReportStatus(message),
+                    cancellationToken: ct).ConfigureAwait(false);
+
+                DispatcherHelper.Run(() => ApplyBedrockInstallation(result.Installation));
+                BackgroundTaskManager.Instance.ReportLog($"[OML] 基岩版安装完成：{result.Installation.Version}");
+            });
+
+            var completed = await item.Completed;
+            if (!completed)
+            {
+                StatusText = item.WasCanceled ? "基岩版安装已取消" : $"基岩版安装失败：{item.Error}";
+                AppendLog($"[错误] {StatusText}");
+                return;
+            }
+
+            StatusText = "基岩版安装完成";
+            CurrentPlatform = CurrentPlatform.Bedrock;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>读取本机已安装的基岩版并刷新卡片文案。</summary>
+    public async Task RefreshBedrockAsync()
+    {
+        try
+        {
+            var installed = await _bedrockService.Locator
+                .GetInstalledAsync()
+                .ConfigureAwait(false);
+
+            // 优先显示正式版；只装了 Preview 时也认。
+            var current = installed.FirstOrDefault(item => !item.IsPreview)
+                          ?? installed.FirstOrDefault();
+
+            DispatcherHelper.Run(() =>
+            {
+                if (current is null)
+                {
+                    _bedrockInstallation = null;
+                    IsBedrockInstalled = false;
+                    BedrockVersionText = "未安装基岩版，点此下载";
+                    BedrockHintText = "点击下载并安装基岩版";
+                }
+                else
+                {
+                    ApplyBedrockInstallation(current);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[错误] 检测基岩版失败：{ex.Message}");
+        }
+    }
+
+    private void ApplyBedrockInstallation(BedrockInstallation installation)
+    {
+        _bedrockInstallation = installation;
+        IsBedrockInstalled = true;
+        BedrockVersionText = installation.IsPreview
+            ? $"基岩版 Preview {installation.Version}"
+            : $"基岩版 {installation.Version}";
+        BedrockHintText = "点击切换为基岩版启动";
+    }
 
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void ToggleVersionPicker() => IsVersionPickerOpen = !IsVersionPickerOpen;
@@ -289,16 +417,78 @@ public partial class HomeViewModel : ObservableObject
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void RefreshVersions() => ReloadVersions();
 
+    /// <summary>基岩版启动：校验授权 → 通过 AUMID 激活。</summary>
+    private async Task LaunchBedrockAsync()
+    {
+        if (_bedrockInstallation is null)
+        {
+            await RefreshBedrockAsync();
+        }
+
+        if (_bedrockInstallation is null)
+        {
+            System.Windows.MessageBox.Show(
+                "本机尚未安装基岩版。\n\n请点击主页的「基岩版」卡片下载并安装后再启动。",
+                "未安装基岩版",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        var profile = _context.Config.UserProfile;
+        if (!string.Equals(profile?.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase))
+        {
+            System.Windows.MessageBox.Show(
+                "启动基岩版需要微软正版账号。\n\n请先在「账号」页登录微软账号。",
+                "需要微软账号",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        IsBusy = true;
+        StatusText = "正在验证基岩版授权…";
+        try
+        {
+            var entitlement = await _bedrockService.Entitlements.CheckAsync(profile!.AccessToken);
+            if (!entitlement.IsOwned)
+            {
+                System.Windows.MessageBox.Show(
+                    entitlement.Message,
+                    "没有基岩版授权",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                StatusText = "未通过基岩版授权检查";
+                AppendLog($"[警告] {entitlement.Message}");
+                return;
+            }
+
+            await _bedrockService.Launcher.LaunchAsync(_bedrockInstallation);
+            StatusText = "已启动基岩版";
+            AppendLog($"[OML] 已启动基岩版 {_bedrockInstallation.Version}（{_bedrockInstallation.AppUserModelId}）");
+        }
+        catch (Exception ex)
+        {
+            StatusText = "启动基岩版失败";
+            AppendLog($"[错误] 启动基岩版失败：{ex.Message}");
+            System.Windows.MessageBox.Show(
+                ex.Message,
+                "启动基岩版失败",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     [CommunityToolkit.Mvvm.Input.RelayCommand(CanExecute = nameof(CanLaunch))]
     private async Task LaunchAsync()
     {
         if (CurrentPlatform == CurrentPlatform.Bedrock)
         {
-            System.Windows.MessageBox.Show(
-                "基岩版需要微软正版账号登录，且当前版本尚未内置基岩版运行时。\n\n请切换到 Java 版启动。",
-                "暂不支持启动基岩版",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            await LaunchBedrockAsync();
             return;
         }
 
