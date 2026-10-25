@@ -24,7 +24,7 @@ OML устанавливает ванильную игру, Forge, Fabric, NeoFo
 ## Установка
 
 Скачайте последний релиз со страницы
-[GitHub Releases](https://github.com/LSwzx/OML_test/releases/latest):
+[GitHub Releases](https://github.com/LSwzx/OML-project/releases/latest):
 
 | Пакет | Описание |
 |:--|:--|
@@ -48,8 +48,8 @@ OML устанавливает ванильную игру, Forge, Fabric, NeoFo
 Требования: Windows 10/11 x64 и [.NET SDK 8.0+](https://dotnet.microsoft.com/download).
 
 ```powershell
-git clone https://github.com/LSwzx/OML_test.git
-cd OML_test
+git clone https://github.com/LSwzx/OML-project.git
+cd OML-project
 
 dotnet build OML.sln -c Release
 dotnet run --project OML.Desktop

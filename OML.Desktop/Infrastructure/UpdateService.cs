@@ -41,7 +41,7 @@ public sealed class UpdateIntegrityException : Exception
 /// </summary>
 public sealed class UpdateService
 {
-    private const string GitHubRepository = "https://github.com/LSwzx/OML_test";
+    private const string GitHubRepository = "https://github.com/LSwzx/OML-project";
 
     private readonly Func<LauncherConfig> _configProvider;
 

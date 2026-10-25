@@ -24,7 +24,7 @@ OML 者，Windows 十、十一 之 Minecraft 啟動器也。其架構法乎 HMCL
 
 ## 安裝
 
-自 [GitHub Releases](https://github.com/LSwzx/OML_test/releases/latest) 下之：
+自 [GitHub Releases](https://github.com/LSwzx/OML-project/releases/latest) 下之：
 
 | 包 | 說 |
 |:--|:--|
@@ -47,8 +47,8 @@ OML 者，Windows 十、十一 之 Minecraft 啟動器也。其架構法乎 HMCL
 需 Windows 十、十一 x64 與 [.NET SDK 八以上](https://dotnet.microsoft.com/download)。
 
 ```powershell
-git clone https://github.com/LSwzx/OML_test.git
-cd OML_test
+git clone https://github.com/LSwzx/OML-project.git
+cd OML-project
 
 dotnet build OML.sln -c Release
 dotnet run --project OML.Desktop

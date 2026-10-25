@@ -24,7 +24,7 @@ Aktuelle Version: **1.1.2** (stabil)
 ## Installation
 
 Lade die neueste Version von
-[GitHub Releases](https://github.com/LSwzx/OML_test/releases/latest) herunter:
+[GitHub Releases](https://github.com/LSwzx/OML-project/releases/latest) herunter:
 
 | Paket | Beschreibung |
 |:--|:--|
@@ -48,8 +48,8 @@ Datenspeicherorte:
 Voraussetzungen: Windows 10/11 x64 und das [.NET SDK 8.0+](https://dotnet.microsoft.com/download).
 
 ```powershell
-git clone https://github.com/LSwzx/OML_test.git
-cd OML_test
+git clone https://github.com/LSwzx/OML-project.git
+cd OML-project
 
 dotnet build OML.sln -c Release
 dotnet run --project OML.Desktop

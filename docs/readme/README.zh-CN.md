@@ -22,7 +22,7 @@
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/LSwzx/OML_test/releases/latest) 下载：
+从 [GitHub Releases](https://github.com/LSwzx/OML-project/releases/latest) 下载：
 
 | 安装包 | 说明 |
 |:--|:--|
@@ -45,8 +45,8 @@
 环境：Windows 10/11 x64、[.NET SDK 8.0+](https://dotnet.microsoft.com/download)。
 
 ```powershell
-git clone https://github.com/LSwzx/OML_test.git
-cd OML_test
+git clone https://github.com/LSwzx/OML-project.git
+cd OML-project
 
 dotnet build OML.sln -c Release
 dotnet run --project OML.Desktop

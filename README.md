@@ -4,7 +4,7 @@
 [![WPF](https://img.shields.io/badge/UI-WPF-68217A?logo=windows&logoColor=white)](https://learn.microsoft.com/dotnet/desktop/wpf/)
 [![Platform](https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6?logo=windows&logoColor=white)](#)
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-1BD96A)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/LSwzx/OML_test?label=release&color=1BD96A)](https://github.com/LSwzx/OML_test/releases)
+[![Release](https://img.shields.io/github/v/release/LSwzx/OML-project?label=release&color=1BD96A)](https://github.com/LSwzx/OML-project/releases)
 
 **语言 / Languages:** **简体中文** · [繁體中文](docs/readme/README.zh-TW.md) · [简体文言](docs/readme/README.zh-classical.md) · [繁體文言](docs/readme/README.zh-classical-t.md) · [English (US)](docs/readme/README.en-US.md) · [English (UK)](docs/readme/README.en-GB.md) · [Français](docs/readme/README.fr.md) · [Deutsch](docs/readme/README.de.md) · [Русский](docs/readme/README.ru.md)
 
@@ -30,7 +30,7 @@ OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器
 | `OML-win-1.2.0-Installer.exe` | 带目录选择页的安装向导（推荐） |
 | `OML-win-1.2.0-Portable.zip` | 免安装，解压即用 |
 
-从 [Releases](https://github.com/LSwzx/OML_test/releases/latest) 下载即可。
+从 [Releases](https://github.com/LSwzx/OML-project/releases/latest) 下载即可。
 
 安装向导会校验目录可写；装到 `Program Files` 这类受保护目录会导致后续自动更新失败，
 建议选择用户可写位置（如 `D:\Apps\OML`）。安装版支持自动更新，便携版需要手动替换。
@@ -43,8 +43,8 @@ OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器
 环境要求：Windows 10/11 x64、[.NET SDK 8.0+](https://dotnet.microsoft.com/download)。
 
 ```powershell
-git clone https://github.com/LSwzx/OML_test.git
-cd OML_test
+git clone https://github.com/LSwzx/OML-project.git
+cd OML-project
 
 # 还原 + 构建
 dotnet build OML.sln -c Release

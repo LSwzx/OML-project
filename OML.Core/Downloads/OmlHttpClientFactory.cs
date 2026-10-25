@@ -23,7 +23,7 @@ namespace OML.Core.Downloads;
 public static class OmlHttpClientFactory
 {
     /// <summary>启动器 UA（版本取入口程序集，发版不用回来改这里）。部分 CDN 会对空 UA 直接 403。</summary>
-    public static string UserAgent { get; } = $"OML/{EntryVersion} (+https://github.com/LSwzx/OML_test)";
+    public static string UserAgent { get; } = $"OML/{EntryVersion} (+https://github.com/LSwzx/OML-project)";
 
     private static string EntryVersion =>
         System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0";
