@@ -26,34 +26,19 @@ public sealed class LauncherContext
     /// <summary>配置路径（界面展示）。</summary>
     public string ConfigPath => _configManager.ConfigPath;
 
-    /// <summary>配置是否已完成首次加载。</summary>
-    public bool IsInitialized { get; private set; }
-
-    /// <summary>配置变更（加载或保存后触发）。</summary>
-    public event Action<LauncherConfig>? ConfigChanged;
-
     /// <summary>从磁盘加载配置。</summary>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         Config = await _configManager.LoadAsync(cancellationToken);
-        IsInitialized = true;
-        ConfigChanged?.Invoke(Config);
     }
 
     /// <summary>保存配置（令牌会被 DPAPI 加密）。</summary>
     public async Task SaveAsync(CancellationToken cancellationToken = default)
     {
         await _configManager.SaveAsync(Config, cancellationToken);
-        ConfigChanged?.Invoke(Config);
     }
 
     /// <summary>按当前配置创建游戏目录对象。</summary>
-    public GameDirectory CreateGameDirectory()
-    {
-        var path = string.IsNullOrWhiteSpace(Config.GameDirectory)
-            ? GameDirectory.LocateDefault().Root
-            : Config.GameDirectory;
-
-        return new GameDirectory(path, Config.VersionIsolation);
-    }
+    public GameDirectory CreateGameDirectory() =>
+        GameDirectory.FromConfig(Config.GameDirectory, Config.VersionIsolation);
 }

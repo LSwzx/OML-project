@@ -21,24 +21,4 @@ public static class DownloadUrls
 
         return $"{baseUrl.TrimEnd('/')}/{relativePath.TrimStart('/')}";
     }
-
-    /// <summary>
-    /// 把 Mojang 官方绝对地址重写到指定镜像源。
-    /// 镜像站与官方目录结构一致，因此只取官方 URL 的路径部分即可。
-    /// 例：官方 <c>https://piston-data.mojang.com/v1/objects/ab/cd/abcd</c>
-    /// → BMCLAPI <c>https://bmclapi2.bangbang93.com/v1/objects/ab/cd/abcd</c>
-    /// </summary>
-    public static string Rebase(string officialUrl, string newBaseUrl)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(officialUrl);
-        ArgumentException.ThrowIfNullOrWhiteSpace(newBaseUrl);
-
-        if (!Uri.TryCreate(officialUrl, UriKind.Absolute, out var uri))
-        {
-            return officialUrl;
-        }
-
-        var path = uri.PathAndQuery.TrimStart('/');
-        return Combine(newBaseUrl, path);
-    }
 }

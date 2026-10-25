@@ -314,9 +314,10 @@ public partial class HomeViewModel : ObservableObject
         try
         {
             // 关键：用共享配置的当前值，账号页刚登录的档案必须生效。
+            // 游戏目录不在这里写回：LaunchSession 会按配置解析，
+            // 写回会把 --game-dir 之类的临时覆盖持久化。
             var config = _context.Config;
             config.SelectedVersion = SelectedVersion.Id;
-            config.GameDirectory = _context.CreateGameDirectory().Root;
             config.UserProfile ??= OfflineAuthService.CreateProfile("Player");
             await _context.SaveAsync();
 

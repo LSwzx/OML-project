@@ -8,6 +8,7 @@ using OML.Core.Assets;
 using OML.Core.Downloads;
 using OML.Core.Java;
 using OML.Core.Versioning;
+using static OML.Core.Launching.LaunchProgressReporter;
 
 namespace OML.Core.Launching;
 
@@ -77,9 +78,7 @@ public sealed class LaunchSession : IDisposable
         }
 
         var versionId = config.SelectedVersion.Trim();
-        var game = new GameDirectory(
-            string.IsNullOrWhiteSpace(config.GameDirectory) ? ".minecraft" : config.GameDirectory,
-            config.VersionIsolation);
+        var game = GameDirectory.FromConfig(config.GameDirectory, config.VersionIsolation);
 
         Report(progress, LaunchStage.Preparing, 0, $"准备启动 {versionId}");
         Directory.CreateDirectory(game.Root);
@@ -441,20 +440,6 @@ public sealed class LaunchSession : IDisposable
         }
     }
 
-    // ---------------------------------------------------------------- 工具
-
-    private static void Report(IProgress<LaunchProgress>? progress, LaunchStage stage, double value, string message) =>
-        progress?.Report(new LaunchProgress(stage, Math.Clamp(value, 0d, 1d), message));
-
-    /// <summary>把 <c>IProgress&lt;double&gt;</c> 直接转成阶段回调（不回线程池，避免顺序错乱）。</summary>
-    private sealed class PhaseProgress : IProgress<double>
-    {
-        private readonly Action<double> _onReport;
-
-        public PhaseProgress(Action<double> onReport) => _onReport = onReport;
-
-        public void Report(double value) => _onReport(Math.Clamp(value, 0d, 1d));
-    }
 
     /// <inheritdoc />
     public void Dispose()

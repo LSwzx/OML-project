@@ -104,12 +104,6 @@ public sealed class GameDirectory
     public string GetGameRoot(string versionId) =>
         VersionIsolation ? GetVersionDirectory(versionId) : Root;
 
-    /// <summary>存档目录（<c>saves</c>）。</summary>
-    public string GetSavesDirectory(string versionId) => Path.Combine(GetGameRoot(versionId), "saves");
-
-    /// <summary>模组目录（<c>mods</c>）。</summary>
-    public string GetModsDirectory(string versionId) => Path.Combine(GetGameRoot(versionId), "mods");
-
     /// <summary>日志目录（<c>logs</c>）。</summary>
     public string GetLogsDirectory(string versionId) => Path.Combine(GetGameRoot(versionId), "logs");
 
@@ -124,6 +118,18 @@ public sealed class GameDirectory
 
         return new GameDirectory(Path.Combine(home, ".minecraft"), versionIsolation);
     }
+
+    /// <summary>
+    /// 把配置里的目录字符串解析为目录对象。
+    /// <para>
+    /// 空白或默认哨兵 <c>".minecraft"</c> 视为"未设置"，解析到默认位置——
+    /// 否则相对路径会跟着进程当前目录跑，README 承诺的默认位置就失效了。
+    /// </para>
+    /// </summary>
+    public static GameDirectory FromConfig(string? configuredPath, bool versionIsolation = false) =>
+        string.IsNullOrWhiteSpace(configuredPath) || configuredPath.Trim() == ".minecraft"
+            ? LocateDefault(versionIsolation)
+            : new GameDirectory(configuredPath, versionIsolation);
 
     /// <summary>
     /// 校验并规范化版本 ID。

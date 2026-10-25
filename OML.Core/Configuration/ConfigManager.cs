@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using OML.Abstractions.Auth;
 using OML.Abstractions.Configuration;
+using OML.Core.IO;
 
 namespace OML.Core.Configuration;
 
@@ -87,13 +88,9 @@ public sealed class ConfigManager
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        Directory.CreateDirectory(LauncherRoot);
-
         // 序列化副本：不修改调用方内存里的对象，也不让明文令牌落盘。
         var json = JsonSerializer.Serialize(CreatePersistableCopy(config), SerializerOptions);
-        var tempPath = ConfigPath + ".tmp";
-        await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, ConfigPath, overwrite: true);
+        await AtomicFile.WriteAllTextAsync(ConfigPath, json, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>生成一份"可落盘"的副本：令牌用 DPAPI 加密，其余字段原样。</summary>
@@ -105,6 +102,7 @@ public sealed class ConfigManager
         GameDirectory = config.GameDirectory,
         VersionIsolation = config.VersionIsolation,
         CompleteAssets = config.CompleteAssets,
+        AutoCheckUpdates = config.AutoCheckUpdates,
         MaxDownloadConcurrency = config.MaxDownloadConcurrency,
         UserProfile = config.UserProfile is null
             ? null

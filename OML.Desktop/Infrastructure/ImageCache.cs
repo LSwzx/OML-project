@@ -63,7 +63,9 @@ public static class ImageCache
 
             return image;
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or NotSupportedException)
+        // HttpClient 超时抛的是 TaskCanceledException（OperationCanceledException 的子类），必须一起捕，
+        // 否则异常会从 fire-and-forget 调用里溜走，图标静默加载失败。
+        catch (Exception ex) when (ex is HttpRequestException or IOException or NotSupportedException or OperationCanceledException)
         {
             return null;
         }
