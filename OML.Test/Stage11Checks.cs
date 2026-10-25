@@ -80,7 +80,10 @@ internal static class Stage11Checks
             var value = property.PropertyType == typeof(string) ? "sentinel-" + property.Name
                 : property.PropertyType == typeof(int) ? (object)(int.MaxValue - 7)
                 : property.PropertyType == typeof(bool) ? !(bool)property.GetValue(sentinel)!
-                : null;
+                : property.PropertyType.IsEnum
+                    ? Enum.GetValues(property.PropertyType)
+                        .GetValue(Enum.GetValues(property.PropertyType).Length - 1)
+                    : null;
             if (value is not null)
             {
                 property.SetValue(sentinel, value);

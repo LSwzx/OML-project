@@ -5,6 +5,8 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
+using OML.Abstractions.Configuration;
+using OML.Core.Diagnostics;
 using OML.Core.Java;
 using OML.Core.Versioning;
 using OML.Desktop.Infrastructure;
@@ -49,6 +51,46 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>启动时自动检查更新。</summary>
     [ObservableProperty]
     private bool autoCheckUpdates = true;
+
+    /// <summary>更新源类型：0 GitHub / 1 自定义 / 2 镜像。</summary>
+    [ObservableProperty]
+    private int updateSourceIndex;
+
+    [ObservableProperty]
+    private string updateSourceUrl = string.Empty;
+
+    public IReadOnlyList<string> UpdateSourceOptions { get; } = new[] { "GitHub", "自定义", "镜像" };
+
+    public bool IsCustomUpdateSource => UpdateSourceIndex != 0;
+
+    partial void OnUpdateSourceIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCustomUpdateSource));
+
+        if (!_suppressSave)
+        {
+            // 立即写回共享配置：用户切换后马上点「检查更新」也要生效，
+            // 不能等 500ms 防抖保存。
+            _context.Config.UpdateSourceType = value switch
+            {
+                1 => UpdateSourceType.Custom,
+                2 => UpdateSourceType.Mirror,
+                _ => UpdateSourceType.Github,
+            };
+        }
+
+        QueueSave();
+    }
+
+    partial void OnUpdateSourceUrlChanged(string value)
+    {
+        if (!_suppressSave)
+        {
+            _context.Config.UpdateSourceUrl = value?.Trim() ?? string.Empty;
+        }
+
+        QueueSave();
+    }
 
     [ObservableProperty]
     private bool versionIsolation;
@@ -204,6 +246,58 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>导出诊断报告（日志、崩溃报告、环境信息、脱敏配置）。</summary>
+    [RelayCommand]
+    private async Task ExportDiagnosticsAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "导出诊断报告",
+            FileName = $"OML-Diagnostic-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            Filter = "Zip 压缩包 (*.zip)|*.zip",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            StatusText = "正在生成诊断报告…";
+
+            var exporter = new DiagnosticExporter(
+                _context.ConfigPath,
+                Path.GetDirectoryName(_context.ConfigPath) ?? AppContext.BaseDirectory);
+
+            var path = await exporter.ExportAsync(
+                dialog.FileName,
+                _context.Config.GameDirectory,
+                _context.Config.SelectedVersion,
+                App.Shell?.Home.Logs ?? string.Empty,
+                _context.Config.JavaPath,
+                App.Shell?.AppVersion ?? "未知");
+
+            StatusText = $"诊断报告已导出：{path}";
+            MessageBox.Show(
+                $"诊断报告已导出：\n{path}",
+                "导出完成",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"导出诊断报告失败：{ex.Message}";
+            MessageBox.Show(
+                $"导出诊断报告失败：\n{ex.Message}",
+                "导出失败",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     /// <summary>显式检查更新，状态通过弹窗告知。</summary>
     [RelayCommand]
     private async Task CheckUpdatesAsync()
@@ -274,6 +368,13 @@ public partial class SettingsViewModel : ObservableObject
             MaxMemoryMB = Math.Clamp(_context.Config.MaxMemoryMB, 1024, 8192);
             CompleteAssets = _context.Config.CompleteAssets;
             AutoCheckUpdates = _context.Config.AutoCheckUpdates;
+            UpdateSourceIndex = _context.Config.UpdateSourceType switch
+            {
+                UpdateSourceType.Custom => 1,
+                UpdateSourceType.Mirror => 2,
+                _ => 0,
+            };
+            UpdateSourceUrl = _context.Config.UpdateSourceUrl;
             VersionIsolation = _context.Config.VersionIsolation;
             JavaPath = _context.Config.JavaPath;
         }
@@ -315,6 +416,13 @@ public partial class SettingsViewModel : ObservableObject
             config.MaxMemoryMB = (int)Math.Round(MaxMemoryMB);
             config.CompleteAssets = CompleteAssets;
             config.AutoCheckUpdates = AutoCheckUpdates;
+            config.UpdateSourceType = UpdateSourceIndex switch
+            {
+                1 => UpdateSourceType.Custom,
+                2 => UpdateSourceType.Mirror,
+                _ => UpdateSourceType.Github,
+            };
+            config.UpdateSourceUrl = UpdateSourceUrl?.Trim() ?? string.Empty;
             config.VersionIsolation = VersionIsolation;
             config.JavaPath = JavaPath?.Trim() ?? string.Empty;
 

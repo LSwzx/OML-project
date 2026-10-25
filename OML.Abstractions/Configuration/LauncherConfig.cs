@@ -56,6 +56,20 @@ public sealed class LauncherConfig
     [JsonPropertyName("maxDownloadConcurrency")]
     public int MaxDownloadConcurrency { get; set; } = 8;
 
+    /// <summary>更新源类型：GitHub / 自定义 / 镜像。</summary>
+    [JsonPropertyName("updateSourceType")]
+    public UpdateSourceType UpdateSourceType { get; set; } = UpdateSourceType.Github;
+
+    /// <summary>
+    /// 自定义更新源地址。
+    /// <para>
+    /// 支持 HTTP(S) 目录与本地目录；GitHub 模式下忽略。
+    /// 镜像可填 <c>https://ghproxy.com/https://github.com/.../releases/download/</c> 一类前缀地址。
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("updateSourceUrl")]
+    public string UpdateSourceUrl { get; set; } = string.Empty;
+
     /// <summary>创建一份默认配置。</summary>
     public static LauncherConfig CreateDefault() => new();
 }

@@ -149,6 +149,33 @@ if (args.Contains("--bedrock-store"))
     return 0;
 }
 
+// 诊断：生成诊断报告 zip（默认读取当前用户的配置）。
+if (args.Length >= 2 && args[0] == "--diagnostic")
+{
+    var output = args[1];
+    var launcherRoot = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OML");
+    var configPath = Path.Combine(launcherRoot, "launcher_config.json");
+
+    var exporter = new OML.Core.Diagnostics.DiagnosticExporter(configPath, launcherRoot);
+    var path = await exporter.ExportAsync(
+        output,
+        Environment.GetEnvironmentVariable("OML_GAME_DIR") ?? @"E:\新建文件夹\.minecraft",
+        versionId: null,
+        launcherLog: "[OML] diagnostic test log",
+        javaPath: null,
+        launcherVersion: "1.1.4");
+
+    Console.WriteLine("导出：" + path);
+    using var zip = System.IO.Compression.ZipFile.OpenRead(path);
+    foreach (var entry in zip.Entries)
+    {
+        Console.WriteLine($"  {entry.FullName}  {entry.Length} bytes");
+    }
+
+    return 0;
+}
+
 RunAbstractionChecks();
 
 // PCL2 之类的第三方启动器会往版本 JSON 里塞注释、尾逗号、扩展字段，
@@ -266,6 +293,33 @@ RunAbstractionChecks();
         .CheckAsync(null);
     Check("基岩版授权：无令牌时提示先登录",
         anonymous.Status == OML.Core.Bedrock.BedrockEntitlementStatus.NotSignedIn);
+}
+
+// 诊断报告：配置脱敏必须递归替换 token / secret，其他字段保持原样。
+{
+    const string configJson = """
+    {
+      "username": "Player1",
+      "accessToken": "secret-minecraft-token",
+      "userProfile": { "refreshToken": "secret-refresh", "name": "Player1" },
+      "nested": [ { "clientSecret": "secret-client" } ],
+      "completeAssets": true
+    }
+    """;
+
+    var sanitized = OML.Core.Diagnostics.DiagnosticExporter.SanitizeConfigJson(configJson);
+
+    Check("诊断报告：accessToken / refreshToken / secret 全部替换为 ***",
+        sanitized.Contains("\"accessToken\": \"***\"") &&
+        sanitized.Contains("\"refreshToken\": \"***\"") &&
+        sanitized.Contains("\"clientSecret\": \"***\"") &&
+        !sanitized.Contains("secret-minecraft-token") &&
+        !sanitized.Contains("secret-refresh") &&
+        !sanitized.Contains("secret-client"));
+
+    Check("诊断报告：非敏感字段与类型保持不变",
+        sanitized.Contains("\"username\": \"Player1\"") &&
+        sanitized.Contains("\"completeAssets\": true"));
 }
 
 Stage4Checks.RunLocal(Check);

@@ -17,6 +17,8 @@ public partial class ShellViewModel : ObservableObject
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
 
+        Updates = new UpdateService(() => _context.Config);
+
         Home = new HomeViewModel(context);
         Install = new InstallViewModel(context);
         Mods = new ModsViewModel(context);
@@ -46,8 +48,8 @@ public partial class ShellViewModel : ObservableObject
 
     public void RequestNavigation(string tag) => NavigationRequested?.Invoke(tag);
 
-    /// <summary>自动更新（Velopack）。</summary>
-    public UpdateService Updates { get; } = new();
+    /// <summary>自动更新（Velopack）。每次检查都会按当前配置重建更新源。</summary>
+    public UpdateService Updates { get; }
 
     [ObservableProperty]
     private bool updateAvailable;
@@ -95,9 +97,13 @@ public partial class ShellViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            var friendly = ex.Message.Contains("lock", StringComparison.OrdinalIgnoreCase)
-                ? "更新失败：另一个 OML 实例或更新进程正在占用更新锁。请关闭所有 OML 窗口后重试。"
-                : $"更新失败：{ex.Message}";
+            var friendly = ex switch
+            {
+                UpdateIntegrityException => $"更新失败：{ex.Message}",
+                _ when UpdateService.IsLockError(ex) =>
+                    "更新失败：可能有另一个更新进程正在运行，请稍后重试或重启电脑。",
+                _ => $"更新失败：{ex.Message}",
+            };
 
             UpdateText = friendly;
             System.Windows.MessageBox.Show(

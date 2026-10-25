@@ -103,6 +103,8 @@ public sealed class ConfigManager
         VersionIsolation = config.VersionIsolation,
         CompleteAssets = config.CompleteAssets,
         AutoCheckUpdates = config.AutoCheckUpdates,
+        UpdateSourceType = config.UpdateSourceType,
+        UpdateSourceUrl = config.UpdateSourceUrl,
         MaxDownloadConcurrency = config.MaxDownloadConcurrency,
         UserProfile = config.UserProfile is null
             ? null
