@@ -1,22 +1,94 @@
 # OML · Onion Minecraft Launcher
 
-Windows 平台的 Minecraft 启动器。架构参考 HMCL 的分层解耦，下载引擎参考 PCL2 的多线程、断点续传与镜像测速。
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![WPF](https://img.shields.io/badge/UI-WPF-68217A?logo=windows&logoColor=white)](https://learn.microsoft.com/dotnet/desktop/wpf/)
+[![Platform](https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6?logo=windows&logoColor=white)](#)
+[![License](https://img.shields.io/badge/license-MIT-1BD96A)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/LSwzx/OML_test?label=release&color=1BD96A)](https://github.com/LSwzx/OML_test/releases)
 
-[注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
+OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器：支持原版、Forge、Fabric、NeoForge、OptiFine 与整合包安装，
+内置 Modrinth 资源搜索、自动补全 Java、损坏版本修复、Velopack 自动更新和可选的版本隔离。
+
+启动器采用分层架构（参考 HMCL 的接口/实现解耦），下载引擎参考 PCL2 的多线程、断点续传与镜像测速思路，
+界面基于 WPF-UI 的 Fluent 深色主题。
+
+> [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
 当前版本：**1.1.2**（正式版）
 
 ![主页](docs/ui-home.png)
+
+## 快速开始
+
+### 安装
+
+| 安装包 | 说明 |
+|:--|:--|
+| `OML-win-1.1.2-Installer.exe` | 带目录选择页的安装向导（推荐） |
+| `OML-win-1.1.2-Portable.zip` | 免安装，解压即用 |
+
+从 [Releases](https://github.com/LSwzx/OML_test/releases/latest) 下载即可。
+
+安装向导会校验目录可写；装到 `Program Files` 这类受保护目录会导致后续自动更新失败，
+建议选择用户可写位置（如 `D:\Apps\OML`）。安装版支持自动更新，便携版需要手动替换。
+
+卸载：设置 → 应用 → OML → 卸载，或 `<安装目录>\Update.exe --uninstall`。
+卸载会保留 `%AppData%\OML` 下的配置与游戏目录里的 `.minecraft` 数据。
+
+### 从源码构建
+
+环境要求：Windows 10/11 x64、[.NET SDK 8.0+](https://dotnet.microsoft.com/download)。
+
+```powershell
+git clone https://github.com/LSwzx/OML_test.git
+cd OML_test
+
+# 还原 + 构建
+dotnet build OML.sln -c Release
+
+# 运行界面
+dotnet run --project OML.Desktop
+
+# 单文件发布（自包含，约 71MB，无需安装 .NET 运行时）
+dotnet publish OML.Desktop\OML.Desktop.csproj -c Release -o publish
+```
+
+WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`；发布配置已在 csproj 的 Release 段设置。
+
+自检（不联网）：
+
+```powershell
+dotnet run --project OML.Test -- --no-network
+```
+
+### 打安装包
+
+```powershell
+# 1. Velopack：生成 Setup、nupkg 与更新源
+vpk pack -u OML -v 1.1.2 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
+
+# 2. NSIS：把 Setup 包进带目录页的向导
+Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
+& "$env:ProgramFiles(x86)\NSIS\makensis.exe" installer\oml.nsi
+
+# 3. 便携版
+Compress-Archive publish\* OML-win-1.1.2-Portable.zip
+```
+
+发布资产需要同时上传 `Releases\OML-<版本>-full.nupkg`、`releases.win.json`、`assets.win.json`，
+否则安装版的自动更新找不到更新源。
 
 ## 功能
 
 ### 版本与启动
 
 - 在线安装原版、Fabric、Forge；支持导入 OptiFine 安装包
+- 识别第三方启动器（PCL2 等）已有的版本目录，损坏 JSON 会给出具体原因而不是静默跳过
+- 已有版本采用增量修复：缺库补库、缺资源补资源，绝不覆盖用户原有的 JSON / jar
 - 版本隔离：每个实例拥有独立的 `mods/`、`config/`、存档与日志
 - 启动参数自动生成：继承版本合并、natives 解压、classpath 与 JVM 参数
-- 自动补全缺失依赖与资源，支持离线账号、LittleSkin（Yggdrasil）登录
-- 账号令牌使用 Windows DPAPI 加密后落盘
+- 自动补全缺失依赖与资源；缺少 Java 时自动下载对应运行时并继续启动
+- 支持离线账号、LittleSkin（Yggdrasil）登录；账号令牌使用 Windows DPAPI 加密后落盘
 
 ### 资源
 
@@ -33,27 +105,11 @@ Windows 平台的 Minecraft 启动器。架构参考 HMCL 的分层解耦，下�
 
 ![皮肤](docs/ui-skin.png)
 
-## 安装
+### 自动更新
 
-| 安装包 | 说明 |
-|:--|:--|
-| `OML-win-1.1.2-Installer.exe` | 带目录选择页的安装向导（推荐） |
-| `OML-win-1.1.2-Portable.zip` | 免安装，解压即用 |
-
-安装向导会校验目录可写；装到 `Program Files` 这类受保护目录会导致后续自动更新失败，
-因此建议选择用户可写位置（如 `D:\Apps\OML`）。
-
-卸载：设置 → 应用 → OML → 卸载，或 `<安装目录>\Update.exe --uninstall`。
-卸载会保留 `%AppData%\OML` 下的配置与游戏目录里的 `.minecraft` 数据。
-
-## 数据位置
-
-| 内容 | 路径 |
-|:--|:--|
-| 启动器配置 | `%AppData%\OML\launcher_config.json` |
-| Java 运行时（自动下载） | `%AppData%\OML\runtimes\` |
-| 皮肤缓存 | `%AppData%\OML\cache\skins\` |
-| 默认游戏目录 | `%AppData%\.minecraft`（可用 `--game-dir` 覆盖） |
+安装版启动后静默检查新版本（可在设置中关闭），发现新版本时窗口顶部出现提示条，
+点击「后台下载并重启更新」即可升级。更新基于 Velopack，更新源为 GitHub Release 中的
+`releases.win.json` 与 `OML-<版本>-full.nupkg`。
 
 ## 技术栈
 
@@ -72,7 +128,9 @@ OML.sln
 ├─ OML.Desktop/          WPF 界面
 ├─ OML.Test/             控制台验证宿主
 ├─ installer/            NSIS 安装向导脚本
-└─ docs/                 截图与文档
+├─ docs/                 截图与文档
+├─ scripts/              安装辅助脚本
+└─ .github/workflows/    发布流水线
 ```
 
 依赖方向严格单向：`Desktop / Test → Core → Abstractions`。
@@ -89,35 +147,16 @@ OML.sln
 | `Modrinth/` | 搜索、项目、版本、依赖递归解析 |
 | `Loaders/` | Fabric（Meta profile）与 Forge（installer.jar）安装 |
 | `Skins/` | 皮肤下载与本地缓存 |
+| `Serialization/` | 全局 JSON 策略（注释、尾逗号、宽容时间格式） |
 
-## 构建
+## 数据位置
 
-```powershell
-# 还原 + 构建
-dotnet build OML.sln -c Release
-
-# 运行界面
-dotnet run --project OML.Desktop
-
-# 单文件发布（自包含，约 71MB）
-dotnet publish OML.Desktop\OML.Desktop.csproj -c Release -o publish
-```
-
-WPF 不支持 IL 裁剪，`PublishTrimmed` 必须为 `false`；发布配置已在 csproj 的 Release 段设置。
-
-### 打安装包
-
-```powershell
-# 1. Velopack：生成 Setup 与更新包
-vpk pack -u OML -v 1.1.2 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
-
-# 2. NSIS：把 Setup 包进带目录页的向导
-Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
-& "$env:ProgramFiles(x86)\NSIS\makensis.exe" installer\oml.nsi
-
-# 3. 便携版
-Compress-Archive publish\* OML-win-1.1.2-Portable.zip
-```
+| 内容 | 路径 |
+|:--|:--|
+| 启动器配置 | `%AppData%\OML\launcher_config.json` |
+| Java 运行时（自动下载） | `%AppData%\OML\runtimes\` |
+| 皮肤缓存 | `%AppData%\OML\cache\skins\` |
+| 默认游戏目录 | `%AppData%\.minecraft`（可用 `--game-dir` 覆盖） |
 
 ## 调试参数
 
@@ -136,14 +175,6 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 `--screenshot` 用 `RenderTargetBitmap` 离屏渲染窗口内容，不依赖桌面会话是否可见，
 适合自动化检查 UI。
 
-## 更新机制
-
-安装版使用 Velopack：启动时静默检查更新，发现新版本在窗口顶部显示提示条，
-点击后后台下载并重启。更新源可用环境变量 `OML_UPDATE_SOURCE` 指向本地目录或 HTTP 服务，
-便于本地联调（详见 `docs/UPDATE.md`）。
-
-
-
 ## 版本历史
 
 ### 1.1.2（正式版）
@@ -151,6 +182,8 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 - 内置自动更新：安装版启动时静默检查新版本，顶部提示条可后台下载并重启升级
 - 设置新增「启动时自动检查更新」开关
 - 发布资产增加 Velopack 更新源（`releases.win.json`、`assets.win.json`、`*.nupkg`）
+- PCL2 目录兼容：扫描诊断、JSON 容错、已有版本不再被重装覆盖
+- 修复 OptiFine / launchwrapper 库缺失导致的 `ClassNotFoundException`
 - 启动器图标换成 OML 洋葱 Logo（exe、窗口、安装向导一致）
 
 ### 1.1.1（正式版）
@@ -186,6 +219,11 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 - Forge 启动依赖完整资源，建议安装时补全资源文件
 - OptiFine 官方安装器没有静默参数，只能通过导入方式启动图形安装
 
+## 参与贡献
+
+欢迎提交 Issue 与 PR。环境要求、提交信息格式（中文 `feat` / `fix`）、PR 流程见
+[CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## 第三方组件
 
 - WPF-Minecraft-Skin-Viewer（MIT）：`OML.Desktop/Controls/SkinView.cs`，
@@ -193,4 +231,4 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 
 ## 许可
 
-未指定开源许可前，保留所有权利。
+本项目基于 [MIT License](LICENSE) 开源，Copyright (c) 2026 LSwzx。
