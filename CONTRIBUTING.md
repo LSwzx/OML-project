@@ -129,4 +129,4 @@ dotnet run --project OML.Desktop -- --auto-launch
 
 ## 许可
 
-贡献的代码默认按仓库的 [MIT License](LICENSE) 授权。
+贡献的代码默认按仓库的 [GPL-3.0-only](LICENSE) 授权；提交即表示同意以该许可证分发。

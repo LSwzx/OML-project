@@ -3,7 +3,7 @@
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![WPF](https://img.shields.io/badge/UI-WPF-68217A?logo=windows&logoColor=white)](https://learn.microsoft.com/dotnet/desktop/wpf/)
 [![Platform](https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6?logo=windows&logoColor=white)](#)
-[![License](https://img.shields.io/badge/license-MIT-1BD96A)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0--only-1BD96A)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/LSwzx/OML_test?label=release&color=1BD96A)](https://github.com/LSwzx/OML_test/releases)
 
 OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器：支持原版、Forge、Fabric、NeoForge、OptiFine 与整合包安装，
@@ -231,4 +231,10 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 
 ## 许可
 
-本项目基于 [MIT License](LICENSE) 开源，Copyright (c) 2026 LSwzx。
+本项目基于 [GNU General Public License v3.0 only](LICENSE)（GPL-3.0-only）开源，
+Copyright (C) 2026 LSwzx。
+
+你可以自由使用、修改和分发本软件，但分发时必须提供完整源代码，并以相同许可证授权衍生作品。
+详见 [LICENSE](LICENSE) 全文。
+
+> Note: Versions prior to v1.0.2 were released under the MIT License. Future versions are licensed under GPL-3.0.
