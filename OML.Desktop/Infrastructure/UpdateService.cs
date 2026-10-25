@@ -88,9 +88,14 @@ public sealed class UpdateService
     }
 
     /// <summary>后台下载更新并重启到新版本。</summary>
+    /// <param name="update">待安装的更新。</param>
+    /// <param name="progress">下载百分比。</param>
+    /// <param name="status">等待锁/重试时的状态文案。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async Task DownloadAndRestartAsync(
         UpdateInfo update,
         Action<int>? progress = null,
+        Action<string>? status = null,
         CancellationToken cancellationToken = default)
     {
         if (_manager is null)
@@ -98,12 +103,54 @@ public sealed class UpdateService
             throw new InvalidOperationException("更新管理器未初始化。");
         }
 
-        await _manager.DownloadUpdatesAsync(
-            update,
-            percent => progress?.Invoke(percent),
-            cancellationToken);
+        // Velopack 用安装目录下的独占锁文件串行化更新操作；另一个实例
+        // （或上一次未退出的 Update.exe）占着锁时会抛 "exclusive lock file"。
+        // 这不是致命错误：等待对方退出后重试即可。
+        await WithLockRetryAsync(
+            () => _manager.DownloadUpdatesAsync(
+                update,
+                percent => progress?.Invoke(percent),
+                cancellationToken),
+            status,
+            cancellationToken).ConfigureAwait(false);
 
-        _manager.ApplyUpdatesAndRestart(update);
+        await WithLockRetryAsync(
+            () =>
+            {
+                _manager.ApplyUpdatesAndRestart(update);
+                return Task.CompletedTask;
+            },
+            status,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private const int MaxLockRetries = 5;
+
+    private static bool IsLockContention(Exception exception) =>
+        exception.Message.Contains("exclusive lock", StringComparison.OrdinalIgnoreCase) ||
+        exception.Message.Contains("lock file", StringComparison.OrdinalIgnoreCase) ||
+        exception.Message.Contains(".velopack_lock", StringComparison.OrdinalIgnoreCase);
+
+    private static async Task WithLockRetryAsync(
+        Func<Task> action,
+        Action<string>? status,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await action().ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (IsLockContention(ex) && attempt < MaxLockRetries)
+            {
+                var wait = TimeSpan.FromSeconds(5 * (attempt + 1));
+                status?.Invoke(
+                    $"另一个 OML 进程正在更新，{wait.TotalSeconds:0} 秒后重试（{attempt + 1}/{MaxLockRetries}）…");
+                await Task.Delay(wait, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     private static IUpdateSource CreateSource()

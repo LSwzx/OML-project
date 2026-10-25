@@ -90,11 +90,21 @@ public partial class ShellViewModel : ObservableObject
         {
             await Updates.DownloadAndRestartAsync(
                 _pendingUpdate,
-                percent => DispatcherHelper.Run(() => UpdateText = $"正在下载更新 {percent}%"));
+                percent => DispatcherHelper.Run(() => UpdateText = $"正在下载更新 {percent}%"),
+                status => DispatcherHelper.Run(() => UpdateText = status));
         }
         catch (Exception ex)
         {
-            UpdateText = $"更新失败：{ex.Message}";
+            var friendly = ex.Message.Contains("lock", StringComparison.OrdinalIgnoreCase)
+                ? "更新失败：另一个 OML 实例或更新进程正在占用更新锁。请关闭所有 OML 窗口后重试。"
+                : $"更新失败：{ex.Message}";
+
+            UpdateText = friendly;
+            System.Windows.MessageBox.Show(
+                friendly,
+                "自动更新失败",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
         }
     }
 

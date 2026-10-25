@@ -22,14 +22,46 @@ public partial class App : Application
     /// <summary>全局外壳 ViewModel（导航页从这里取自己的 DataContext）。</summary>
     public static ShellViewModel? Shell { get; private set; }
 
+    /// <summary>单实例互斥体：避免两个进程同时更新，抢 Velopack 的独占锁。</summary>
+    private static Mutex? _singleInstanceMutex;
+
     public App()
     {
         // 必须是整个进程里最早执行的逻辑之一：Velopack 要接管安装/卸载/更新参数。
         VelopackApp.Build().Run();
     }
 
+    /// <summary>
+    /// 以安装目录区分实例：便携版与安装版可以同时运行，但同一个目录只允许一个实例。
+    /// 两个实例同时执行更新会触发 Velopack 的 "exclusive lock file" 错误。
+    /// </summary>
+    private static string GetInstanceMutexName()
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(AppContext.BaseDirectory));
+        return "Local\\OML_" + Convert.ToHexString(hash)[..16];
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        _singleInstanceMutex = new Mutex(
+            initiallyOwned: true,
+            GetInstanceMutexName(),
+            out var isFirstInstance);
+
+        if (!isFirstInstance)
+        {
+            MessageBox.Show(
+                "OML 已经在运行。\n\n" +
+                "如果正在更新，请等待已打开的窗口完成更新；" +
+                "同时运行多个实例会导致更新失败。",
+                "OML 已在运行",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Shutdown();
+            return;
+        }
+
         base.OnStartup(e);
 
         ApplicationThemeManager.Apply(ApplicationTheme.Dark);
