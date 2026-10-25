@@ -310,16 +310,6 @@ public sealed class JavaScanner
             ?.Path;
     }
 
-    /// <summary>清空扫描与版本缓存（用户手动切换 Java 后调用）。</summary>
-    public void InvalidateCache()
-    {
-        lock (_gate)
-        {
-            _scanned = null;
-            _majorVersionCache.Clear();
-        }
-    }
-
     /// <summary>从 <c>java -version</c> 输出中提取主版本号。</summary>
     public static int? ParseMajorVersion(string? versionOutput)
     {

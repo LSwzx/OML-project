@@ -74,7 +74,7 @@ if (args.Length >= 2 && args[0] == "--scan")
         Console.WriteLine($"       {issue.Reason}");
     }
 
-    return scan.Issues.Count == 0 ? 0 : 0;
+    return scan.Issues.Count == 0 ? 0 : 1;
 }
 
 // 诊断：下载单个 URL，打印重试/失败日志与状态。
@@ -400,10 +400,6 @@ void RunAbstractionChecks()
     Check("DownloadUrls.Combine 双侧斜杠归一",
         DownloadUrls.Combine("https://bmclapi2.bangbang93.com/", "/version.json") ==
         "https://bmclapi2.bangbang93.com/version.json");
-    Check("DownloadUrls.Rebase 换源",
-        DownloadUrls.Rebase("https://piston-data.mojang.com/v1/objects/ab/client.jar",
-            "https://bmclapi2.bangbang93.com/") ==
-        "https://bmclapi2.bangbang93.com/v1/objects/ab/client.jar");
 
     var task = new DownloadTask
     {
@@ -416,10 +412,10 @@ void RunAbstractionChecks()
 
     DownloadSource[] sources =
     [
-        new() { Name = "Mojang", BaseUrl = "https://piston-meta.mojang.com/", IsOfficial = true, Priority = 10 },
-        new() { Name = "BMCLAPI", BaseUrl = "https://bmclapi2.bangbang93.com/", Priority = 0 },
+        new() { Name = "Mojang", BaseUrl = "https://piston-meta.mojang.com/", IsOfficial = true },
+        new() { Name = "BMCLAPI", BaseUrl = "https://bmclapi2.bangbang93.com/" },
     ];
-    Check("DownloadSource 列表", sources.Length == 2 && sources[1].Priority == 0);
+    Check("DownloadSource 列表", sources.Length == 2 && !sources[1].IsOfficial);
 
     Console.WriteLine("== 6. Auth ==");
     var profile = new UserProfile

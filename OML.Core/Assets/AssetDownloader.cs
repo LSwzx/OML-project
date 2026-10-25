@@ -5,6 +5,7 @@ using OML.Abstractions.Models;
 using OML.Core.Downloads;
 using OML.Core.Serialization;
 using OML.Core.Versioning;
+using OML.Core.IO;
 
 namespace OML.Core.Assets;
 
@@ -77,7 +78,7 @@ public sealed class AssetDownloader : IDisposable
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        await WriteAtomicAsync(indexPath, json, cancellationToken).ConfigureAwait(false);
+        await AtomicFile.WriteAllTextAsync(indexPath, json, cancellationToken).ConfigureAwait(false);
 
         var index = JsonSerializer.Deserialize<AssetIndex>(json, OmlJsonOptions.Default)
             ?? throw new InvalidDataException($"资源索引解析失败：{indexPath}");
@@ -227,19 +228,6 @@ public sealed class AssetDownloader : IDisposable
         {
             return null;
         }
-    }
-
-    private static async Task WriteAtomicAsync(string path, string content, CancellationToken cancellationToken)
-    {
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var tempPath = path + ".tmp";
-        await File.WriteAllTextAsync(tempPath, content, cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, path, overwrite: true);
     }
 
     /// <inheritdoc />

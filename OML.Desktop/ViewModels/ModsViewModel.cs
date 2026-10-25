@@ -517,7 +517,8 @@ public partial class ModsViewModel : ObservableObject
                     {
                         ct.ThrowIfCancellationRequested();
                         var entry = index.Files[i];
-                        var destination = Path.Combine(instanceRoot, entry.Path.Replace('/', Path.DirectorySeparatorChar));
+                        var destination = SafeCombine(instanceRoot, entry.Path.Replace('/', Path.DirectorySeparatorChar))
+                            ?? throw new InvalidDataException($"整合包声明了实例目录之外的路径：{entry.Path}");
                         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 
                         DispatcherHelper.Run(() => StatusText = $"下载整合包文件 {i + 1}/{index.Files.Count}：{Path.GetFileName(entry.Path)}");
@@ -690,6 +691,17 @@ public partial class ModsViewModel : ObservableObject
         {
             // 临时目录清不掉不影响结果。
         }
+    }
+
+    /// <summary>
+    /// 把整合包声明的相对路径合并进实例目录；含 <c>..</c> 等逃逸成分时返回 null。
+    /// <para>modrinth.index.json 来自任意第三方，路径不校验就能写到实例目录之外。</para>
+    /// </summary>
+    private static string? SafeCombine(string root, string relativePath)
+    {
+        var full = Path.GetFullPath(Path.Combine(root, relativePath));
+        var prefix = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? full : null;
     }
 
     // ---------------------------------------------------------------- 公共

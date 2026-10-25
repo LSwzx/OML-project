@@ -175,20 +175,4 @@ public static class VersionInheritor
 
         return merged;
     }
-
-    /// <summary>把 <c>arguments</c> 中"纯字符串"的参数取出来，方便调用方快速拼命令行。</summary>
-    public static IEnumerable<string> EnumerateStringArguments(IEnumerable<JsonElement> arguments)
-    {
-        foreach (var argument in arguments)
-        {
-            if (argument.ValueKind == JsonValueKind.String)
-            {
-                var value = argument.GetString();
-                if (!string.IsNullOrEmpty(value))
-                {
-                    yield return value;
-                }
-            }
-        }
-    }
 }

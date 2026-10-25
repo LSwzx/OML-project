@@ -140,8 +140,7 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
                 throw new MicrosoftAuthException("设备代码已过期，请重新发起登录。", "expired_token");
             }
 
-            await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
-
+            // 先请求再等待：用户往往在发起前就完成了授权，首次就白等一个间隔。
             var tokenJson = await RequestTokenAsync(
                 new Dictionary<string, string>
                 {
@@ -162,11 +161,11 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
             {
                 case "authorization_pending":
                     status?.Report("尚未完成授权，继续等待…");
-                    continue;
+                    break;
                 case "slow_down":
                     interval += TimeSpan.FromSeconds(5);
                     status?.Report("请求过快，已自动放慢轮询…");
-                    continue;
+                    break;
                 case "authorization_declined":
                     throw new MicrosoftAuthException("用户拒绝了授权。", tokenJson.ErrorCode);
                 case "expired_token":
@@ -177,6 +176,8 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
                     throw new MicrosoftAuthException(
                         $"获取令牌失败：{tokenJson.ErrorDescription}", tokenJson.ErrorCode, tokenJson.AadErrorCode);
             }
+
+            await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
         }
     }
 

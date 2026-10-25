@@ -15,7 +15,7 @@ namespace OML.Desktop.ViewModels;
 /// 设置页：直接读写共享配置。
 /// <para>
 /// 滑块拖动会高频触发变更，所以保存做了 500ms 防抖——
-/// 否则拖一次内存条会写几十次磁盘、触发几十次 ConfigChanged。
+/// 否则拖一次内存条会写几十次磁盘。
 /// </para>
 /// </summary>
 public partial class SettingsViewModel : ObservableObject
@@ -174,6 +174,10 @@ public partial class SettingsViewModel : ObservableObject
         {
             using var downloader = new JavaRuntimeDownloader(launcherRoot);
             var info = await downloader.DownloadAsync(component, progress, ct);
+
+            // 直接写配置再落盘：ViewModel 属性的保存是 500ms 防抖的，
+            // 立即 SaveAsync 会把旧 JavaPath 写进配置。
+            _context.Config.JavaPath = info.JavaPath;
 
             DispatcherHelper.Run(() =>
             {

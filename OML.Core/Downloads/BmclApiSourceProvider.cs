@@ -18,8 +18,6 @@ public sealed class BmclApiSourceProvider : IDownloadSourceProvider, IDisposable
     {
         Name = "Mojang",
         BaseUrl = "https://launchermeta.mojang.com/",
-        IsOfficial = true,
-        Priority = 10,
     };
 
     /// <summary>BMCLAPI 镜像源。</summary>
@@ -28,7 +26,6 @@ public sealed class BmclApiSourceProvider : IDownloadSourceProvider, IDisposable
         Name = "BMCLAPI",
         BaseUrl = BmclApiPathMapper.BmclApiBaseUrl,
         IsOfficial = false,
-        Priority = 0,
     };
 
     /// <summary>
@@ -112,13 +109,6 @@ public sealed class BmclApiSourceProvider : IDownloadSourceProvider, IDisposable
 
     /// <summary>把官方地址改写为镜像地址；不支持映射的地址原样返回。</summary>
     public static string MapToMirror(string officialUrl) => BmclApiPathMapper.Map(officialUrl);
-
-    /// <summary>清空测速缓存（用户手动切源或网络环境变化时调用）。</summary>
-    public void InvalidateCache()
-    {
-        _cachedBaseUrl = null;
-        _cachedAt = default;
-    }
 
     private bool TryGetCached(out string baseUrl)
     {

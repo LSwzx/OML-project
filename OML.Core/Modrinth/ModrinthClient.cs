@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using OML.Abstractions.Modrinth;
 using OML.Core.Serialization;
+using OML.Core.Downloads;
 
 namespace OML.Core.Modrinth;
 
@@ -16,8 +17,6 @@ public sealed class ModrinthClient : IDisposable
 {
     /// <summary>API 根地址。</summary>
     public const string DefaultBaseUrl = "https://api.modrinth.com/v2";
-
-    private const string DefaultUserAgent = "OML/0.1 (github.com/LSwzx/OML_test)";
 
     private static readonly JsonSerializerOptions JsonOptions = new(OmlJsonOptions.Default)
     {
@@ -34,7 +33,7 @@ public sealed class ModrinthClient : IDisposable
         _ownsHttpClient = httpClient is null;
         _http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         _baseUrl = (baseUrl ?? DefaultBaseUrl).TrimEnd('/');
-        _userAgent = string.IsNullOrWhiteSpace(userAgent) ? DefaultUserAgent : userAgent;
+        _userAgent = string.IsNullOrWhiteSpace(userAgent) ? OmlHttpClientFactory.UserAgent : userAgent;
     }
 
     /// <summary>

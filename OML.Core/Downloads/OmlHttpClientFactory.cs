@@ -22,8 +22,11 @@ namespace OML.Core.Downloads;
 /// </summary>
 public static class OmlHttpClientFactory
 {
-    /// <summary>启动器 UA。部分 CDN 会对空 UA 直接 403。</summary>
-    public const string UserAgent = "OML/0.1 (+https://github.com/LSwzx/OML_test)";
+    /// <summary>启动器 UA（版本取入口程序集，发版不用回来改这里）。部分 CDN 会对空 UA 直接 403。</summary>
+    public static string UserAgent { get; } = $"OML/{EntryVersion} (+https://github.com/LSwzx/OML_test)";
+
+    private static string EntryVersion =>
+        System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0";
 
     /// <summary>创建适合大文件下载的客户端：不禁用重定向、不做透明解压、连接超时 10s。</summary>
     public static HttpClient Create()

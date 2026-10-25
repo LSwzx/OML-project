@@ -65,5 +65,39 @@ internal static class Stage11Checks
 
         check("无令牌时不写入 dpapi 字段",
             !File.ReadAllText(noTokenManager.ConfigPath).Contains(TokenProtector.Prefix, StringComparison.Ordinal));
+
+        // 防再犯：给每个公共可写属性填一个与默认值不同的值，保存-加载后必须原样回来。
+        // 以后给 LauncherConfig 加新字段而忘了 CreatePersistableCopy，这里会先红。
+        var roundTripManager = new ConfigManager(Path.Combine(root, "round-trip"));
+        var sentinel = new LauncherConfig();
+        foreach (var property in typeof(LauncherConfig).GetProperties())
+        {
+            if (!property.CanWrite)
+            {
+                continue;
+            }
+
+            var value = property.PropertyType == typeof(string) ? "sentinel-" + property.Name
+                : property.PropertyType == typeof(int) ? (object)(int.MaxValue - 7)
+                : property.PropertyType == typeof(bool) ? !(bool)property.GetValue(sentinel)!
+                : null;
+            if (value is not null)
+            {
+                property.SetValue(sentinel, value);
+            }
+        }
+
+        roundTripManager.SaveAsync(sentinel).GetAwaiter().GetResult();
+        var restored = roundTripManager.LoadAsync().GetAwaiter().GetResult();
+        foreach (var property in typeof(LauncherConfig).GetProperties())
+        {
+            var expected = property.GetValue(sentinel);
+            if (expected is null || !property.CanWrite)
+            {
+                continue;
+            }
+
+            check($"配置字段 {property.Name} 保存后可读回", Equals(property.GetValue(restored), expected));
+        }
     }
 }

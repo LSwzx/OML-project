@@ -15,9 +15,6 @@ public sealed class DownloadSource
     /// <summary>是否为官方源。官方源通常作为兜底而非首选。</summary>
     public bool IsOfficial { get; init; }
 
-    /// <summary>静态优先级，数值越小越优先（测速结果相同或测速失败时的决断依据）。</summary>
-    public int Priority { get; init; }
-
     /// <inheritdoc />
     public override string ToString() => $"{Name} ({BaseUrl})";
 }

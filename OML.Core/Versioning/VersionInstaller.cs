@@ -6,6 +6,7 @@ using OML.Abstractions.Models;
 using OML.Core.Assets;
 using OML.Core.Downloads;
 using OML.Core.Java;
+using static OML.Core.Launching.LaunchProgressReporter;
 
 namespace OML.Core.Versioning;
 
@@ -343,17 +344,6 @@ public sealed class VersionInstaller : IDisposable
         }
     }
 
-    private static void Report(IProgress<LaunchProgress>? progress, LaunchStage stage, double value, string message) =>
-        progress?.Report(new LaunchProgress(stage, Math.Clamp(value, 0d, 1d), message));
-
-    private sealed class PhaseProgress : IProgress<double>
-    {
-        private readonly Action<double> _onReport;
-
-        public PhaseProgress(Action<double> onReport) => _onReport = onReport;
-
-        public void Report(double value) => _onReport(Math.Clamp(value, 0d, 1d));
-    }
 
     /// <inheritdoc />
     public void Dispose()

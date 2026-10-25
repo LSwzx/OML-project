@@ -8,6 +8,7 @@ using OML.Core.Java;
 using OML.Core.Launching;
 using OML.Core.Serialization;
 using OML.Core.Versioning;
+using OML.Core.IO;
 
 namespace OML.Core.Loaders;
 
@@ -115,11 +116,7 @@ public sealed class LoaderInstaller : IDisposable
 
         progress?.Report(new LaunchProgress(LaunchStage.Extracting, 0.8, "写入版本 JSON"));
         var jsonPath = _gameDirectory.GetVersionJsonPath(id);
-        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
-
-        var tempPath = jsonPath + ".tmp";
-        await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, jsonPath, overwrite: true);
+        await AtomicFile.WriteAllTextAsync(jsonPath, json, cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new LaunchProgress(LaunchStage.Completed, 1, $"Fabric {loader} 安装完成"));
         return new LoaderInstallResult(id, "Fabric", jsonPath);

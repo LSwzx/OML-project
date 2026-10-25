@@ -6,6 +6,7 @@ using OML.Abstractions.Downloads;
 using OML.Core.Downloads;
 using OML.Core.Serialization;
 using OML.Core.Versioning;
+using OML.Core.IO;
 
 namespace OML.Core.Java;
 
@@ -241,11 +242,7 @@ public sealed class JavaRuntimeDownloader : IDisposable
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
-
-        var tempPath = cachePath + ".tmp";
-        await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, cachePath, overwrite: true);
+        await AtomicFile.WriteAllTextAsync(cachePath, json, cancellationToken).ConfigureAwait(false);
         return json;
     }
 
