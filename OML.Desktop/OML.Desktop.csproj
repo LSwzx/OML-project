@@ -26,7 +26,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.1.4</Version>
+    <Version>1.2.0</Version>
     <!-- exe 自身图标（资源管理器/快捷方式/任务栏） -->
     <ApplicationIcon>Assets\oml.ico</ApplicationIcon>
   </PropertyGroup>

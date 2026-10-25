@@ -17,7 +17,7 @@ OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器
 > **Disclaimer:** OML is an open-source third-party launcher. Not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Synergies AB.
 > [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前版本：**1.1.4**（正式版）
+当前版本：**1.2.0**（正式版）
 
 ![主页](docs/ui-home.png)
 
@@ -27,8 +27,8 @@ OML（Onion Minecraft Launcher）是一个面向 Windows 的 Minecraft 启动器
 
 | 安装包 | 说明 |
 |:--|:--|
-| `OML-win-1.1.4-Installer.exe` | 带目录选择页的安装向导（推荐） |
-| `OML-win-1.1.4-Portable.zip` | 免安装，解压即用 |
+| `OML-win-1.2.0-Installer.exe` | 带目录选择页的安装向导（推荐） |
+| `OML-win-1.2.0-Portable.zip` | 免安装，解压即用 |
 
 从 [Releases](https://github.com/LSwzx/OML_test/releases/latest) 下载即可。
 
@@ -68,14 +68,14 @@ dotnet run --project OML.Test -- --no-network
 
 ```powershell
 # 1. Velopack：生成 Setup、nupkg 与更新源
-vpk pack -u OML -v 1.1.4 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
+vpk pack -u OML -v 1.2.0 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
 
 # 2. NSIS：把 Setup 包进带目录页的向导
 Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
 & "$env:ProgramFiles(x86)\NSIS\makensis.exe" installer\oml.nsi
 
 # 3. 便携版
-Compress-Archive publish\* OML-win-1.1.4-Portable.zip
+Compress-Archive publish\* OML-win-1.2.0-Portable.zip
 ```
 
 发布资产需要同时上传 `Releases\OML-<版本>-full.nupkg`、`releases.win.json`、`assets.win.json`，
@@ -186,6 +186,15 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 适合自动化检查 UI。
 
 ## 版本历史
+
+### 1.2.0（正式版）
+
+- 全局弹窗重构：所有确认/提示改用 WPF-UI ContentDialog，深色主题、圆角按钮，替换全部原生 MessageBox
+- 新增诊断报告导出：日志、崩溃报告、系统环境、Java 信息与脱敏配置一键打包
+- 更新包完整性校验（SHA-256 / 大小），损坏包自动删除并提示
+- 更新源可切换：GitHub / 自定义 / 镜像，设置页可直接填写地址
+- 更新提示条内嵌下载进度，不再弹出额外窗口
+- 锁冲突重试与中文提示保留
 
 ### 1.1.4（正式版）
 
