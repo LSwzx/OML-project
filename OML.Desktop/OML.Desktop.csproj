@@ -26,7 +26,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <!-- exe 自身图标（资源管理器/快捷方式/任务栏） -->
     <ApplicationIcon>Assets\oml.ico</ApplicationIcon>
   </PropertyGroup>
@@ -39,6 +39,7 @@
     - Debug 构建保持普通输出，不引入 RID 子目录，方便本地调试。
   -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DefineConstants>$(DefineConstants);STRICT_ONLINE_ONLY</DefineConstants>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>

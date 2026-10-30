@@ -1,3 +1,4 @@
+#if !STRICT_ONLINE_ONLY
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -390,3 +391,4 @@ public sealed class YggdrasilAuthService : IAuthService, IDisposable
         }
     }
 }
+#endif

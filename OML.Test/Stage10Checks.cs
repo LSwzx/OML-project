@@ -1,3 +1,4 @@
+#if !STRICT_ONLINE_ONLY
 using System.Net;
 using OML.Abstractions.Auth;
 using OML.Core.Auth;
@@ -131,3 +132,4 @@ internal static class Stage10Checks
         check("无效令牌刷新被拒绝", refreshRejected);
     }
 }
+#endif

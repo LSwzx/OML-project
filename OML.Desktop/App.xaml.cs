@@ -121,10 +121,12 @@ public partial class App : Application
 
                 window.NavigateTo(string.IsNullOrWhiteSpace(initialPage) ? "home" : initialPage);
 
+#if !STRICT_ONLINE_ONLY
                 if (!string.IsNullOrWhiteSpace(offlineAccount))
                 {
                     await shell.Accounts.CreateOfflineAccountAsync(offlineAccount);
                 }
+#endif
 
                 if (!string.IsNullOrWhiteSpace(autoInstall))
                 {

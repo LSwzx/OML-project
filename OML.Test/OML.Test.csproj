@@ -5,6 +5,10 @@
     <ProjectReference Include="..\OML.Core\OML.Core.csproj" />
   </ItemGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DefineConstants>$(DefineConstants);STRICT_ONLINE_ONLY</DefineConstants>
+  </PropertyGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>

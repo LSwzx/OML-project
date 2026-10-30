@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using OML.Abstractions.Auth;
 using OML.Abstractions.Configuration;
 using OML.Abstractions.Downloads;
 using OML.Abstractions.Launching;
@@ -76,6 +77,14 @@ public sealed class LaunchSession : IDisposable
         {
             throw new InvalidOperationException("配置中没有账号（userProfile 为空）。");
         }
+
+#if STRICT_ONLINE_ONLY
+        // 合规构建：绝不允许以离线 / 外置账号启动。
+        if (!string.Equals(config.UserProfile.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("当前版本仅支持微软正版账号，请先在账号页登录。");
+        }
+#endif
 
         var versionId = config.SelectedVersion.Trim();
         var game = GameDirectory.FromConfig(config.GameDirectory, config.VersionIsolation);

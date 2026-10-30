@@ -1,3 +1,4 @@
+#if !STRICT_ONLINE_ONLY
 using OML.Abstractions.Auth;
 using OML.Abstractions.Configuration;
 using OML.Abstractions.Launching;
@@ -259,3 +260,4 @@ internal static class Stage7Checks
         public IReadOnlyList<LaunchStage> Stages => Items.Select(i => i.Stage).Distinct().ToArray();
     }
 }
+#endif

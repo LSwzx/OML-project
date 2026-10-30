@@ -17,7 +17,7 @@ OML（Onion Launcher）是一个面向 Windows 的 Minecraft 启动器：支持�
 > **Disclaimer:** OML is an open-source third-party launcher. Not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Synergies AB.
 > [注] 本启动器主要由 DeepSeek-V4.1-Flash 1017 负责开发。
 
-当前版本：**1.2.0**（正式版）
+当前版本：**1.2.1**（正式版）
 
 ![主页](docs/ui-home.png)
 
@@ -27,8 +27,8 @@ OML（Onion Launcher）是一个面向 Windows 的 Minecraft 启动器：支持�
 
 | 安装包 | 说明 |
 |:--|:--|
-| `OML-win-1.2.0-Installer.exe` | 带目录选择页的安装向导（推荐） |
-| `OML-win-1.2.0-Portable.zip` | 免安装，解压即用 |
+| `OML-win-1.2.1-Installer.exe` | 带目录选择页的安装向导（推荐） |
+| `OML-win-1.2.1-Portable.zip` | 免安装，解压即用 |
 
 从 [Releases](https://github.com/LSwzx/OML-project/releases/latest) 下载即可。
 
@@ -68,14 +68,14 @@ dotnet run --project OML.Test -- --no-network
 
 ```powershell
 # 1. Velopack：生成 Setup、nupkg 与更新源
-vpk pack -u OML -v 1.2.0 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
+vpk pack -u OML -v 1.2.1 -p publish -e OML.Desktop.exe -o Releases --icon OML.Desktop\Assets\oml.ico
 
 # 2. NSIS：把 Setup 包进带目录页的向导
 Copy-Item "Releases\OML-win-Setup.exe" "installer\payload\" -Force
 & "$env:ProgramFiles(x86)\NSIS\makensis.exe" installer\oml.nsi
 
 # 3. 便携版
-Compress-Archive publish\* OML-win-1.2.0-Portable.zip
+Compress-Archive publish\* OML-win-1.2.1-Portable.zip
 ```
 
 发布资产需要同时上传 `Releases\OML-<版本>-full.nupkg`、`releases.win.json`、`assets.win.json`，
@@ -91,7 +91,7 @@ Compress-Archive publish\* OML-win-1.2.0-Portable.zip
 - 版本隔离：每个实例拥有独立的 `mods/`、`config/`、存档与日志
 - 启动参数自动生成：继承版本合并、natives 解压、classpath 与 JVM 参数
 - 自动补全缺失依赖与资源；缺少 Java 时自动下载对应运行时并继续启动
-- 支持离线账号、LittleSkin（Yggdrasil）登录；账号令牌使用 Windows DPAPI 加密后落盘
+- 仅支持微软正版账号登录（设备码流程）；账号令牌使用 Windows DPAPI 加密后落盘
 
 ### 资源
 
@@ -111,7 +111,7 @@ Compress-Archive publish\* OML-win-1.2.0-Portable.zip
 
 使用 [WPF-Minecraft-Skin-Viewer](https://github.com/mokkignomov-design/WPF-Minecraft-Skin-Viewer)
 的 `SkinView`（MIT）：纯 WPF、零依赖，支持 Slim / Classic 与双层皮肤。
-鼠标拖动旋转，空闲后自动旋转；离线账号显示内置 Steve。
+鼠标拖动旋转，空闲后自动旋转；未登录账号显示内置 Steve。
 
 ![皮肤](docs/ui-skin.png)
 
@@ -187,6 +187,15 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 
 ## 版本历史
 
+### 1.2.1（正式版）
+
+- 合规补丁：Release / 发布构建默认启用 `STRICT_ONLINE_ONLY`
+- 物理剔除离线登录与 LittleSkin（Yggdrasil）认证代码、数据模型、工厂与账号页 UI
+- 仅保留微软正版设备码登录：账号页显示 user_code、验证地址，可复制代码、打开浏览器，
+  后台轮询授权成功后写入配置
+- 旧配置中的离线 / 外置账号会被拦截并提示「不支持此账号类型」；启动前强制校验微软账号
+- 账号页与启动日志不再提供任何离线启动入口
+
 ### 1.2.0（正式版）
 
 - 全局弹窗重构：所有确认/提示改用 WPF-UI ContentDialog，深色主题、圆角按钮，替换全部原生 MessageBox
@@ -236,7 +245,7 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 ### 1.1.0（正式版）
 
 - 全新三栏主界面：Java/基岩平台卡片、账号与皮肤、全局任务状态
-- 3D 皮肤预览（Slim/Classic、双层皮肤、拖拽旋转），离线使用内置 Steve
+- 3D 皮肤预览（Slim/Classic、双层皮肤、拖拽旋转），未登录时使用内置 Steve
 - Modrinth 依赖递归解析与依赖树展示；光影、整合包安装
 - 整合包实例独立命名与 `instance.json` 元数据，图标本地缓存
 - 安装原子性：中断安装自动清理，避免半成品版本

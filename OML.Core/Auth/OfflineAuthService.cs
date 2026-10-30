@@ -1,3 +1,4 @@
+#if !STRICT_ONLINE_ONLY
 using System.Security.Cryptography;
 using System.Text;
 using OML.Abstractions.Auth;
@@ -125,3 +126,4 @@ public sealed class OfflineAuthService : IAuthService
     private static string GenerateFakeToken() =>
         Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
 }
+#endif

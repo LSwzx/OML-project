@@ -1,3 +1,4 @@
+#if !STRICT_ONLINE_ONLY
 using System.Net;
 
 namespace OML.Abstractions.Auth;
@@ -57,3 +58,4 @@ public sealed record YggdrasilServerInfo(
     string ServerName,
     string? ImplementationName,
     string? Homepage);
+#endif

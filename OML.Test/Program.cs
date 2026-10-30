@@ -325,10 +325,14 @@ RunAbstractionChecks();
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
 Stage6Checks.RunLocal(Check);
+#if !STRICT_ONLINE_ONLY
 Stage7Checks.RunLocal(Check);
+#endif
 Stage8Checks.RunLocal(Check);
 Stage9Checks.RunLocal(Check);
+#if !STRICT_ONLINE_ONLY
 Stage10Checks.RunLocal(Check);
+#endif
 Stage11Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
@@ -356,10 +360,12 @@ else
         if (!args.Contains("--no-launch"))
         {
             await Stage6Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+#if !STRICT_ONLINE_ONLY
             await Stage7Checks.RunNetworkAsync(
                 Check,
                 Path.Combine(Path.GetTempPath(), "oml-stage7", "launcher"),
                 Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
+#endif
         }
         else
         {
@@ -380,10 +386,12 @@ else
         await Stage9Checks.RunNetworkAsync(Check);
     }
 
+#if !STRICT_ONLINE_ONLY
     if (!args.Contains("--no-stage10"))
     {
         await Stage10Checks.RunNetworkAsync(Check);
     }
+#endif
 }
 
 Console.WriteLine();
