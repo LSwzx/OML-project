@@ -99,7 +99,6 @@ public partial class App : Application
 
         var gameDirectoryOverride = ReadArgument(e.Args, "--game-dir");
         var initialPage = ReadArgument(e.Args, "--nav");
-        var offlineAccount = ReadArgument(e.Args, "--create-offline");
         var autoInstall = ReadArgument(e.Args, "--install");
         var autoFabric = ReadArgument(e.Args, "--install-fabric");
         var autoForge = ReadArgument(e.Args, "--install-forge");
@@ -121,12 +120,7 @@ public partial class App : Application
 
                 window.NavigateTo(string.IsNullOrWhiteSpace(initialPage) ? "home" : initialPage);
 
-#if !STRICT_ONLINE_ONLY
-                if (!string.IsNullOrWhiteSpace(offlineAccount))
-                {
-                    await shell.Accounts.CreateOfflineAccountAsync(offlineAccount);
-                }
-#endif
+
 
                 if (!string.IsNullOrWhiteSpace(autoInstall))
                 {

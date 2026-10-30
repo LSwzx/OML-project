@@ -26,10 +26,20 @@ internal static class Stage9Checks
         }
         else
         {
-            // 合规构建内置了 Client ID，不再要求用户配置环境变量。
-            check("内置 Client ID 可用",
-                !string.IsNullOrWhiteSpace(MicrosoftAuthService.DefaultClientId) &&
-                MicrosoftAuthService.ResolveClientId(null) == MicrosoftAuthService.DefaultClientId);
+            var threw = false;
+            string? message = null;
+            try
+            {
+                MicrosoftAuthService.ResolveClientId(null);
+            }
+            catch (InvalidOperationException ex)
+            {
+                threw = true;
+                message = ex.Message;
+            }
+
+            check("未配置 Client ID 时给出明确指引",
+                threw && message!.Contains(MicrosoftAuthService.ClientIdEnvironmentVariable));
         }
 
         check("显式 Client ID 优先于环境变量",

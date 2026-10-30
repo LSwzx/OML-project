@@ -22,5 +22,32 @@ jobs:
       - name: Build
         run: dotnet build OML.sln -c Release --nologo
 
+      # 合规闸门：发布产物中不得出现离线/外置登录的任何痕迹。
+      - name: Compliance string scan
+        shell: pwsh
+        run: |
+          $patterns = @('OfflinePlayer:', 'littleskin.cn', 'authserver/authenticate', 'CreateOfflineCommand', 'LoginLittleSkinCommand')
+          $files = Get-ChildItem OML.Desktop\bin\Release -Recurse -Include *.dll,*.exe -File
+          $hits = @()
+
+          foreach ($file in $files) {
+            $bytes = [IO.File]::ReadAllBytes($file.FullName)
+            foreach ($encoding in @([Text.Encoding]::UTF8, [Text.Encoding]::Unicode)) {
+              $text = $encoding.GetString($bytes)
+              foreach ($pattern in $patterns) {
+                if ($text.IndexOf($pattern, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                  $hits += "$($file.Name): $pattern"
+                }
+              }
+            }
+          }
+
+          if ($hits.Count -gt 0) {
+            $hits | Sort-Object -Unique | ForEach-Object { Write-Error "违规字符串：$_" }
+            throw "Release 产物包含离线/外置登录痕迹，拒绝合并。"
+          }
+
+          Write-Host "合规扫描通过：未发现 OfflinePlayer: / littleskin.cn / authserver/authenticate。"
+
       - name: Offline checks
         run: dotnet run --project OML.Test -c Release --no-build -- --no-network

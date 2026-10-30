@@ -340,17 +340,22 @@ RunAbstractionChecks();
         sanitized.Contains("\"completeAssets\": true"));
 }
 
+// 启动日志脱敏：accessToken / session 只保留首尾各 4 位。
+{
+    var masked = OML.Core.Launching.JvmLauncher.MaskSensitiveArguments(
+        "--accessToken ABCDEFGHIJKLMNOP --session=1234567890123456");
+    Check("启动日志对 accessToken / session 脱敏",
+        !masked.Contains("ABCDEFGHIJKLMNOP") &&
+        !masked.Contains("1234567890123456") &&
+        masked.Contains("ABCD***MNOP") &&
+        masked.Contains("1234***3456"));
+}
+
 Stage4Checks.RunLocal(Check);
 Stage5Checks.RunLocal(Check);
 Stage6Checks.RunLocal(Check);
-#if !STRICT_ONLINE_ONLY
-Stage7Checks.RunLocal(Check);
-#endif
 Stage8Checks.RunLocal(Check);
 Stage9Checks.RunLocal(Check);
-#if !STRICT_ONLINE_ONLY
-Stage10Checks.RunLocal(Check);
-#endif
 Stage11Checks.RunLocal(Check);
 
 if (args.Contains("--no-network"))
@@ -378,12 +383,6 @@ else
         if (!args.Contains("--no-launch"))
         {
             await Stage6Checks.RunNetworkAsync(Check, Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
-#if !STRICT_ONLINE_ONLY
-            await Stage7Checks.RunNetworkAsync(
-                Check,
-                Path.Combine(Path.GetTempPath(), "oml-stage7", "launcher"),
-                Path.Combine(Path.GetTempPath(), "oml-stage5", ".minecraft"));
-#endif
         }
         else
         {
@@ -403,13 +402,6 @@ else
     {
         await Stage9Checks.RunNetworkAsync(Check);
     }
-
-#if !STRICT_ONLINE_ONLY
-    if (!args.Contains("--no-stage10"))
-    {
-        await Stage10Checks.RunNetworkAsync(Check);
-    }
-#endif
 }
 
 Console.WriteLine();
@@ -595,11 +587,10 @@ void RunAbstractionChecks()
         Username = "Steve",
         Uuid = "069a79f4-44e9-4726-a5be-fca90e38aaf5",
     };
-    Check("UserProfile 默认类型为 Offline", profile.Type == AuthTypes.Offline);
-    Check("AuthTypes.All 含三种类型",
-        AuthTypes.All.Count == 3 &&
-        AuthTypes.All.Contains(AuthTypes.Microsoft) &&
-        AuthTypes.All.Contains(AuthTypes.LittleSkin));
+    Check("UserProfile 默认类型为空", profile.Type == string.Empty);
+    Check("AuthTypes.All 仅保留微软",
+        AuthTypes.All.Count == 1 &&
+        AuthTypes.All.Contains(AuthTypes.Microsoft));
 }
 
 // ------------------------------------------------------------------ 阶段 3

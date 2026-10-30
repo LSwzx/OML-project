@@ -82,7 +82,7 @@ internal static class Stage6Checks
             Username = "Player",
             Uuid = "00000000-0000-0000-0000-000000000000",
             AccessToken = null,
-            Type = AuthTypes.Offline,
+            Type = AuthTypes.Microsoft,
         };
 
         var options = new LaunchOptions
@@ -109,11 +109,10 @@ internal static class Stage6Checks
         var mainIndex = built.Arguments.ToList().IndexOf("net.minecraft.client.main.Main");
         check("主类位于 -cp 之后", mainIndex > built.Arguments.ToList().IndexOf("-cp"));
 
-        check("离线身份与路径变量已替换",
+        check("身份与路径变量已替换",
             built.Arguments.Contains("Player") &&
             built.Arguments.Contains("00000000-0000-0000-0000-000000000000") &&
-            built.Arguments.Contains("0") &&
-            built.Arguments.Contains("legacy"));
+            built.Arguments.Contains("0"));
         check("默认不含 --demo 与分辨率参数",
             !built.Arguments.Contains("--demo") && !built.Arguments.Contains("--width"));
         check("--gameDir 指向游戏根", built.Arguments[built.Arguments.ToList().IndexOf("--gameDir") + 1] == root);
@@ -267,7 +266,7 @@ internal static class Stage6Checks
             Username = "Player",
             Uuid = "00000000-0000-0000-0000-000000000000",
             AccessToken = null,
-            Type = AuthTypes.Offline,
+            Type = AuthTypes.Microsoft,
         };
 
         var options = new LaunchOptions

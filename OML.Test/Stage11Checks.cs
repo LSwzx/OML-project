@@ -43,7 +43,7 @@ internal static class Stage11Checks
                 Username = "Player",
                 Uuid = "a01e3843-e521-3998-958a-f459800e4d11",
                 AccessToken = plainToken,
-                Type = AuthTypes.Offline,
+                Type = AuthTypes.Microsoft,
             },
         };
 

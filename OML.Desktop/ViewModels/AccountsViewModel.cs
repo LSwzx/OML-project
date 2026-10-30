@@ -9,19 +9,14 @@ namespace OML.Desktop.ViewModels;
 
 /// <summary>
 /// 账号页：当前账号展示 + 微软正版登录（设备码流程）。
-/// <para>
-/// 合规构建（<c>STRICT_ONLINE_ONLY</c>）下，离线与 LittleSkin 认证在编译期被物理剔除，
-/// 只允许微软正版账号。
-/// </para>
+/// <para>仅支持微软正版账号；离线与外置登录已从代码库中删除。</para>
 /// </summary>
 public partial class AccountsViewModel : ObservableObject
 {
+    private const string PendingReviewMessage =
+        "微软正版登录等待 Mojang 应用白名单审核，当前仅支持已过审的测试环境，暂未对普通用户开放。";
+
     private readonly LauncherContext _context;
-
-#if !STRICT_ONLINE_ONLY
-    private readonly YggdrasilAuthService _yggdrasil = new();
-#endif
-
     private CancellationTokenSource? _loginCts;
 
     public AccountsViewModel(LauncherContext context)
@@ -31,17 +26,6 @@ public partial class AccountsViewModel : ObservableObject
 
     [ObservableProperty]
     private UserProfile? currentProfile;
-
-#if !STRICT_ONLINE_ONLY
-    [ObservableProperty]
-    private string offlineUsername = "Player";
-
-    [ObservableProperty]
-    private string littleSkinEmail = string.Empty;
-
-    [ObservableProperty]
-    private string littleSkinPassword = string.Empty;
-#endif
 
     [ObservableProperty]
     private string statusText = "尚未登录微软账号。";
@@ -94,18 +78,16 @@ public partial class AccountsViewModel : ObservableObject
     {
         CurrentProfile = _context.Config.UserProfile;
 
-#if STRICT_ONLINE_ONLY
         if (CurrentProfile is not null &&
             !string.Equals(CurrentProfile.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase))
         {
-            // 旧配置里的离线/LittleSkin 账号：不再允许使用。
+            // 旧配置里的非微软账号：不再允许使用。
             CurrentProfile = null;
             _context.Config.UserProfile = null;
             StatusText = "不支持此账号类型：当前版本仅支持微软正版登录。";
             _ = _context.SaveAsync();
             return;
         }
-#endif
 
         StatusText = CurrentProfile is null
             ? "尚未登录微软账号。"
@@ -121,6 +103,17 @@ public partial class AccountsViewModel : ObservableObject
             return;
         }
 
+        var hasEnvironmentClientId =
+            !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(MicrosoftAuthService.ClientIdEnvironmentVariable));
+
+        if (string.IsNullOrWhiteSpace(MicrosoftAuthService.DefaultClientId) && !hasEnvironmentClientId)
+        {
+            MicrosoftLoginStatus = "等待 Mojang 审核中，暂不可用。";
+            StatusText = MicrosoftLoginStatus;
+            await DialogService.Instance.ShowInfoAsync("微软登录暂不可用", PendingReviewMessage);
+            return;
+        }
+
         IsBusy = true;
         IsMicrosoftLoginActive = true;
         MicrosoftUserCode = string.Empty;
@@ -132,7 +125,6 @@ public partial class AccountsViewModel : ObservableObject
 
         try
         {
-            // 延迟创建：未配置 Client ID 时构造函数会抛错，不能让它拖垮整个启动器。
             microsoft = new MicrosoftAuthService();
 
             var code = await microsoft.StartDeviceCodeAsync(_loginCts.Token);
@@ -163,6 +155,12 @@ public partial class AccountsViewModel : ObservableObject
         {
             StatusText = "已取消微软登录。";
             MicrosoftLoginStatus = "已取消。";
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Client ID", StringComparison.OrdinalIgnoreCase))
+        {
+            StatusText = "等待 Mojang 审核中，暂不可用。";
+            MicrosoftLoginStatus = StatusText;
+            await DialogService.Instance.ShowInfoAsync("微软登录暂不可用", PendingReviewMessage);
         }
         catch (MicrosoftAuthException ex)
         {
@@ -233,77 +231,6 @@ public partial class AccountsViewModel : ObservableObject
         IsMicrosoftLoginActive = false;
         MicrosoftLoginStatus = "已取消。";
     }
-
-#if !STRICT_ONLINE_ONLY
-    [RelayCommand]
-    private async Task CreateOfflineAsync()
-    {
-        if (IsBusy)
-        {
-            return;
-        }
-
-        IsBusy = true;
-        try
-        {
-            var profile = OfflineAuthService.CreateProfile(OfflineUsername);
-            await ApplyProfileAsync(profile);
-            StatusText = $"已创建离线账号：{profile.Username}";
-        }
-        catch (ArgumentException ex)
-        {
-            StatusText = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task LoginLittleSkinAsync()
-    {
-        if (IsBusy)
-        {
-            return;
-        }
-
-        IsBusy = true;
-        try
-        {
-            StatusText = "正在登录 LittleSkin…";
-            var session = await _yggdrasil.LoginAsync(LittleSkinEmail, LittleSkinPassword);
-
-            if (string.IsNullOrWhiteSpace(session.Profile.AccessToken))
-            {
-                // Yggdrasil 的令牌是 accessToken 而不是档案里的字段，回填便于持久化。
-                session.Profile.AccessToken = session.AccessToken;
-            }
-
-            await ApplyProfileAsync(session.Profile);
-            StatusText = $"已登录：{session.Profile.Username}（皮肤：{session.Profile.SkinModel ?? "未知"}）";
-        }
-        catch (YggdrasilException ex)
-        {
-            StatusText = ex.Message;
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"登录失败：{ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>调试入口：直接创建一个离线账号（供自动化截图/冒烟使用）。</summary>
-    public async Task CreateOfflineAccountAsync(string username)
-    {
-        OfflineUsername = username;
-        await CreateOfflineAsync();
-    }
-#endif
 
     private async Task ApplyProfileAsync(UserProfile profile)
     {

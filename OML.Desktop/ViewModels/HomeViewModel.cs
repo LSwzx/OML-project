@@ -262,11 +262,10 @@ public partial class HomeViewModel : ObservableObject
     {
         var profile = _context.Config.UserProfile;
 
-#if STRICT_ONLINE_ONLY
         if (profile is not null &&
             !string.Equals(profile.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase))
         {
-            // 旧配置里的离线/LittleSkin 账号：账号卡片不展示，避免误导。
+            // 旧配置里的非微软账号：账号卡片不展示，避免误导。
             profile = null;
             AccountName = "未登录";
             AccountInitial = "?";
@@ -274,7 +273,6 @@ public partial class HomeViewModel : ObservableObject
             _ = RefreshSkinAsync();
             return;
         }
-#endif
 
         AccountName = string.IsNullOrWhiteSpace(profile?.Username) ? "未登录" : profile!.Username;
         AccountInitial = string.IsNullOrWhiteSpace(profile?.Username)
@@ -284,10 +282,6 @@ public partial class HomeViewModel : ObservableObject
         AccountTypeText = profile?.Type switch
         {
             AuthTypes.Microsoft => "微软正版",
-#if !STRICT_ONLINE_ONLY
-            AuthTypes.LittleSkin => "外置登录",
-            AuthTypes.Offline => "离线账号",
-#endif
             _ => "点击登录",
         };
 
@@ -505,7 +499,6 @@ public partial class HomeViewModel : ObservableObject
             var config = _context.Config;
             config.SelectedVersion = SelectedVersion.Id;
 
-#if STRICT_ONLINE_ONLY
             if (config.UserProfile is null ||
                 !string.Equals(config.UserProfile.Type, AuthTypes.Microsoft, StringComparison.OrdinalIgnoreCase))
             {
@@ -515,9 +508,7 @@ public partial class HomeViewModel : ObservableObject
                     "当前版本仅支持微软正版登录。\n\n请先在「账号」页完成微软登录后再启动。");
                 return;
             }
-#else
-            config.UserProfile ??= OfflineAuthService.CreateProfile("Player");
-#endif
+
             await _context.SaveAsync();
 
             StatusText = "准备启动…";

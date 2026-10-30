@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace OML.Core.Launching;
 
@@ -81,7 +82,7 @@ public sealed class JvmLauncher : IDisposable
                 AutoFlush = true,
             };
             _logWriter.WriteLine($"# {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} OML launch");
-            _logWriter.WriteLine($"# {arguments.ToCommandLine()}");
+            _logWriter.WriteLine($"# {MaskSensitiveArguments(arguments.ToCommandLine())}");
         }
 
         var startInfo = new ProcessStartInfo(arguments.JavaPath)
@@ -160,4 +161,33 @@ public sealed class JvmLauncher : IDisposable
             _logWriter = null;
         }
     }
-}
+
+    private static readonly Regex SensitiveArgumentPattern = new(
+        @"(?<prefix>--(?:accessToken|session)(?:=|\s+))(?<value>""[^""]*""|\S+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>日志脱敏：--accessToken / --session 的值只保留前 4 位与后 4 位。</summary>
+    public static string MaskSensitiveArguments(string commandLine)
+    {
+        if (string.IsNullOrEmpty(commandLine))
+        {
+            return commandLine;
+        }
+
+        return SensitiveArgumentPattern.Replace(commandLine, match =>
+        {
+            var prefix = match.Groups["prefix"].Value;
+            var raw = match.Groups["value"].Value.Trim('"');
+            return prefix + MaskToken(raw);
+        });
+    }
+
+    private static string MaskToken(string token)
+    {
+        if (token.Length <= 8)
+        {
+            return "***";
+        }
+
+        return $"{token[..4]}***{token[^4..]}";
+    }}

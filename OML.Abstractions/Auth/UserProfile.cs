@@ -12,13 +12,12 @@ public sealed class UserProfile
     public string Username { get; set; } = string.Empty;
 
     /// <summary>
-    /// 玩家 UUID（带连字符的 36 位字符串）。
-    /// 离线模式下为 <c>OfflinePlayer:&lt;name&gt;</c> 的 MD5（Java 版规则）。
+    /// 玩家 UUID（带连字符的 36 位字符串），来自官方 Minecraft 档案接口。
     /// </summary>
     [JsonPropertyName("uuid")]
     public string Uuid { get; set; } = string.Empty;
 
-    /// <summary>会话令牌。离线模式为随机串；微软正版为 Minecraft access token。</summary>
+    /// <summary>会话令牌。微软正版为 Minecraft access token。</summary>
     [JsonPropertyName("accessToken")]
     public string? AccessToken { get; set; }
 
@@ -32,7 +31,7 @@ public sealed class UserProfile
 
     /// <summary>该档案的认证来源，取值见 <see cref="AuthTypes"/>。</summary>
     [JsonPropertyName("type")]
-    public string Type { get; set; } = AuthTypes.Offline;
+    public string Type { get; set; } = string.Empty;
 
     /// <inheritdoc />
     public override string ToString() => $"{Username} ({Uuid})";

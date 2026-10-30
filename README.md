@@ -91,7 +91,7 @@ Compress-Archive publish\* OML-win-1.2.1-Portable.zip
 - 版本隔离：每个实例拥有独立的 `mods/`、`config/`、存档与日志
 - 启动参数自动生成：继承版本合并、natives 解压、classpath 与 JVM 参数
 - 自动补全缺失依赖与资源；缺少 Java 时自动下载对应运行时并继续启动
-- 仅支持微软正版账号登录（设备码流程）；账号令牌使用 Windows DPAPI 加密后落盘
+- 仅支持微软正版账号登录（设备码流程，等待 Mojang 应用白名单审核）；账号令牌使用 Windows DPAPI 加密后落盘
 
 ### 资源
 
@@ -153,7 +153,7 @@ OML.sln
 | `Downloads/` | 多线程下载引擎（断点续传、SHA-1 校验、镜像测速） |
 | `Launching/` | 启动参数构建、预检、natives 解压、进程管理、日志 |
 | `Java/` | Java 探测（JAVA_HOME/注册表/常见目录/PATH）与官方运行时下载 |
-| `Auth/` | 离线账号、微软设备码登录、Yggdrasil（LittleSkin） |
+| `Auth/` | 微软正版设备码登录（等待 Mojang 应用白名单审核） |
 | `Modrinth/` | 搜索、项目、版本、依赖递归解析 |
 | `Loaders/` | Fabric（Meta profile）与 Forge（installer.jar）安装 |
 | `Skins/` | 皮肤下载与本地缓存 |
@@ -189,13 +189,12 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 
 ### 1.2.1（正式版）
 
-- 合规补丁：Release / 发布构建默认启用 `STRICT_ONLINE_ONLY`
-- 物理剔除离线登录与 LittleSkin（Yggdrasil）认证代码、数据模型、工厂与账号页 UI
-- 仅保留微软正版设备码登录：账号页显示 user_code、验证地址，可复制代码、打开浏览器，
-  后台轮询授权成功后写入配置
-- 旧配置中的离线 / 外置账号会被拦截并提示「不支持此账号类型」；启动前强制校验微软账号
+- 移除离线登录与外置登录（LittleSkin / Yggdrasil）：相关源码、数据模型与账号页入口均已删除
+- 仅保留微软正版登录；微软正版登录等待 Mojang 应用白名单审核，当前仅支持已过审的测试环境，
+  暂未对普通用户开放
+- 旧配置中的非微软账号会被拦截并提示「不支持此账号类型」；启动前强制校验微软账号
+- 账号页提供设备码展示（user_code / 验证地址 / 复制 / 打开浏览器），审核通过并配置 Client ID 后可用
 - 更新日志弹窗：强制更新时仅保留「立即更新」按钮
-- 账号页与启动日志不再提供任何离线启动入口
 
 ### 1.2.0（正式版）
 
@@ -259,7 +258,7 @@ dotnet run --project OML.Desktop -- --nav home --screenshot out.png --screenshot
 
 ## 已知限制
 
-- 微软正版登录等待 Mojang 应用白名单审核，暂未开放
+- 微软正版登录等待 Mojang 应用白名单审核，当前仅支持已过审的测试环境，暂未对普通用户开放
 - 基岩版需要微软正版账号与授权，安装包约 1GB
 - Forge 启动依赖完整资源，建议安装时补全资源文件
 - OptiFine 官方安装器没有静默参数，只能通过导入方式启动图形安装
