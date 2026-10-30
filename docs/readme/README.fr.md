@@ -1,4 +1,4 @@
-# OML · Onion Minecraft Launcher
+# OML · Onion Launcher
 
 **Langues :** [简体中文](../../README.md) · [繁體中文](README.zh-TW.md) · [简体文言](README.zh-classical.md) · [繁體文言](README.zh-classical-t.md) · [English (US)](README.en-US.md) · [English (UK)](README.en-GB.md) · **Français** · [Deutsch](README.de.md) · [Русский](README.ru.md)
 

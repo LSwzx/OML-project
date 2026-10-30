@@ -1,8 +1,8 @@
-# OML · 洋蔥 Minecraft 啟動器
+# OML · 洋蔥啟動器
 
 **語言：** [简体中文](../../README.md) · [繁體中文](README.zh-TW.md) · [简体文言](README.zh-classical.md) · [繁體文言](README.zh-classical-t.md) · [English (US)](README.en-US.md) · [English (UK)](README.en-GB.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md)
 
-OML 者，Windows 十、十一 之 Minecraft 啟動器也。其架構法乎 HMCL，下載之術效乎 PCL2，
+OML 者，Windows 十、十一 之啟動器也。其架構法乎 HMCL，下載之術效乎 PCL2，
 以 .NET 八與 WPF 成之。
 
 可裝原版、Forge、Fabric、NeoForge、OptiFine 與整合包；能識 PCL2 所治之目錄；

@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:pages="clr-namespace:OML.Desktop.Views.Pages"
-                 Title="OML · Onion Minecraft Launcher"
+                 Title="OML · Onion Launcher"
                  Width="1180" Height="780"
                  MinWidth="960" MinHeight="640"
                  WindowStartupLocation="CenterScreen"
@@ -27,7 +27,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="OML · Onion Minecraft Launcher" />
+        <ui:TitleBar Grid.Row="0" Title="OML · Onion Launcher" />
 
         <!-- 自动更新提示条 -->
         <Border Grid.Row="1"
