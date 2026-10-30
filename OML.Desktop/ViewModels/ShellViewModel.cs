@@ -76,6 +76,53 @@ public partial class ShellViewModel : ObservableObject
         _pendingUpdate = update;
         UpdateText = $"发现新版本 {update.TargetFullRelease.Version}（当前 {Updates.CurrentVersion}）";
         UpdateAvailable = true;
+
+        await ShowMandatoryUpdateDialogAsync(update);
+    }
+
+    private bool _mandatoryDialogShown;
+
+    /// <summary>更新日志弹窗：本次为必须更新，只保留「立即更新」按钮。</summary>
+    private async Task ShowMandatoryUpdateDialogAsync(Velopack.UpdateInfo update)
+    {
+        if (_mandatoryDialogShown)
+        {
+            return;
+        }
+
+        _mandatoryDialogShown = true;
+
+        var notes = string.IsNullOrWhiteSpace(update.TargetFullRelease.NotesMarkdown)
+            ? UpdateNotes.Latest
+            : update.TargetFullRelease.NotesMarkdown;
+
+        var content = new System.Windows.Controls.StackPanel();
+        content.Children.Add(new System.Windows.Controls.TextBlock
+        {
+            Text = "本次更新为必须更新，完成后启动器会自动重启。",
+            TextWrapping = System.Windows.TextWrapping.Wrap,
+            FontWeight = System.Windows.FontWeights.SemiBold,
+            Margin = new System.Windows.Thickness(0, 0, 0, 12),
+        });
+
+        content.Children.Add(new System.Windows.Controls.ScrollViewer
+        {
+            MaxHeight = 360,
+            VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+            Content = new System.Windows.Controls.TextBlock
+            {
+                Text = notes,
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+                LineHeight = 22,
+            },
+        });
+
+        await DialogService.Instance.ShowMandatoryAsync(
+            $"发现新版本 {update.TargetFullRelease.Version}",
+            content,
+            "立即更新");
+
+        await InstallUpdateAsync();
     }
 
     /// <summary>是否正在下载更新（提示条内显示进度条）。</summary>

@@ -20,26 +20,16 @@ internal static class Stage9Checks
         check("非法长度原样返回", MicrosoftAuthService.FormatUuid("abc") == "abc");
 
         var hadClientId = Environment.GetEnvironmentVariable(MicrosoftAuthService.ClientIdEnvironmentVariable);
-        if (string.IsNullOrWhiteSpace(hadClientId))
+        if (!string.IsNullOrWhiteSpace(hadClientId))
         {
-            var threw = false;
-            string? message = null;
-            try
-            {
-                MicrosoftAuthService.ResolveClientId(null);
-            }
-            catch (InvalidOperationException ex)
-            {
-                threw = true;
-                message = ex.Message;
-            }
-
-            check("未配置 Client ID 时给出明确指引",
-                threw && message!.Contains(MicrosoftAuthService.ClientIdEnvironmentVariable));
+            check("环境变量 Client ID 优先", MicrosoftAuthService.ResolveClientId(null) == hadClientId);
         }
         else
         {
-            check("环境变量提供了 Client ID", MicrosoftAuthService.ResolveClientId(null) == hadClientId);
+            // 合规构建内置了 Client ID，不再要求用户配置环境变量。
+            check("内置 Client ID 可用",
+                !string.IsNullOrWhiteSpace(MicrosoftAuthService.DefaultClientId) &&
+                MicrosoftAuthService.ResolveClientId(null) == MicrosoftAuthService.DefaultClientId);
         }
 
         check("显式 Client ID 优先于环境变量",

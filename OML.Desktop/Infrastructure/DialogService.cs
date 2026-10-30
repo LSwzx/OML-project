@@ -30,6 +30,9 @@ public interface IDialogService
         string primaryText,
         string? secondaryText = null,
         string? closeText = null);
+
+    /// <summary>只保留一个主按钮的强制弹窗（用于必须更新）。</summary>
+    Task ShowMandatoryAsync(string title, object content, string primaryText);
 }
 
 /// <summary>
@@ -59,6 +62,66 @@ public sealed class DialogService : IDialogService
     public Task ShowErrorAsync(string title, string message) =>
         ShowChoiceAsync(title, message, "确定");
 
+    public async Task ShowMandatoryAsync(string title, object content, string primaryText)
+    {
+        if (_host is null)
+        {
+            var text = content as string ?? content?.ToString() ?? string.Empty;
+            await ShowChoiceAsync(title, text, primaryText);
+            return;
+        }
+
+        var panel = new System.Windows.Controls.StackPanel();
+        if (content is System.Windows.UIElement element)
+        {
+            panel.Children.Add(element);
+        }
+        else
+        {
+            panel.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = content?.ToString() ?? string.Empty,
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+            });
+        }
+
+        var dialog = new UiContentDialog(_host)
+        {
+            Title = title,
+            Content = panel,
+            IsFooterVisible = false,
+        };
+
+        var primaryButton = new Wpf.Ui.Controls.Button
+        {
+            Content = primaryText,
+            Appearance = ControlAppearance.Primary,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+            Height = 36,
+            MinWidth = 140,
+            Margin = new System.Windows.Thickness(0, 16, 0, 0),
+        };
+
+        var closeRequestedByButton = false;
+        primaryButton.Click += (_, _) =>
+        {
+            closeRequestedByButton = true;
+            dialog.Hide(ContentDialogResult.Primary);
+        };
+
+        // 强制更新：除了「立即更新」按钮，任何关闭请求（Esc / 遮罩）都拒绝。
+        dialog.Closing += (_, args) =>
+        {
+            if (!closeRequestedByButton)
+            {
+                args.Cancel = true;
+            }
+        };
+
+        panel.Children.Add(primaryButton);
+
+        await dialog.ShowAsync();
+    }
     public async Task<DialogChoice> ShowChoiceAsync(
         string title,
         string message,

@@ -36,7 +36,7 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
     /// 默认 Client ID（空）。启动器项目必须注册自己的应用；
     /// 这里不预置任何第三方 ID，避免把用户导向他人的授权页。
     /// </summary>
-    public const string DefaultClientId = "";
+    public const string DefaultClientId = "c9081c3e-79a9-4b80-8e67-6ac5242b3508";
 
     private const string XboxLiveUrl = "https://user.auth.xboxlive.com/user/authenticate";
     private const string XstsUrl = "https://xsts.auth.xboxlive.com/xsts/authorize";
@@ -66,6 +66,11 @@ public sealed class MicrosoftAuthService : IAuthService, IDisposable
         var candidate = !string.IsNullOrWhiteSpace(explicitClientId)
             ? explicitClientId.Trim()
             : Environment.GetEnvironmentVariable(ClientIdEnvironmentVariable)?.Trim();
+
+        if (string.IsNullOrWhiteSpace(candidate) && !string.IsNullOrWhiteSpace(DefaultClientId))
+        {
+            candidate = DefaultClientId;
+        }
 
         if (!string.IsNullOrWhiteSpace(candidate))
         {

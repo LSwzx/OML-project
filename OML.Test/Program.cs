@@ -176,6 +176,24 @@ if (args.Length >= 2 && args[0] == "--diagnostic")
     return 0;
 }
 
+// 诊断：验证微软 Client ID 能正常签发设备码（不轮询）。
+if (args.Contains("--ms-device"))
+{
+    using var service = new OML.Core.Auth.MicrosoftAuthService();
+    try
+    {
+        var code = await service.StartDeviceCodeAsync();
+        Console.WriteLine($"user_code={code.UserCode}");
+        Console.WriteLine($"verification_uri={code.VerificationUri}");
+        Console.WriteLine($"expires_in={code.ExpiresIn}s interval={code.Interval}s");
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"失败：{ex.GetType().Name}: {ex.Message}");
+        return 1;
+    }
+}
 RunAbstractionChecks();
 
 // PCL2 之类的第三方启动器会往版本 JSON 里塞注释、尾逗号、扩展字段，

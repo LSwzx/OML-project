@@ -226,6 +226,20 @@ public partial class App : Application
 
         window.Show();
 
+        // 开发/自动化：打开强更弹窗，便于离屏检查更新日志样式。
+        if (e.Args.Contains("--update-dialog-test"))
+        {
+            _ = DialogService.Instance.ShowMandatoryAsync(
+                "发现新版本 1.2.1",
+                new System.Windows.Controls.TextBlock
+                {
+                    Text = UpdateNotes.Latest,
+                    TextWrapping = System.Windows.TextWrapping.Wrap,
+                    MaxWidth = 560,
+                },
+                "立即更新");
+        }
+
         // 开发/自动化：打开一个 ContentDialog，便于离屏检查深色弹窗样式。
         if (e.Args.Contains("--dialog-test"))
         {
